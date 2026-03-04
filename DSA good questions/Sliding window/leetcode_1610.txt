@@ -1,0 +1,176 @@
+📌 LEETCODE 1610 — MASTER NOTES (Anubhav Edition)
+✅ Problem in Simple Words
+
+Tu ek point par khada hai (location).
+Tere paas bahut saare points hain.
+
+Tu apna face ghumaa sakta hai,
+lekin ek baar me sirf angle degree ke andar hi dekh sakta hai.
+
+👉 Task:
+Aisi direction choose karo jahan maximum points dikhen.
+
+✅ Real Life Analogy
+
+Soch tu torch lekar khada hai.
+
+Torch ka cone = angle
+
+Tu torch ghumata hai
+
+Jo log torch ke cone me aate hain wo dikhenge
+
+👉 Goal: torch ko aise rakho ki sabse zyada log roshni me aa jaayein.
+
+✅ Core Idea
+
+Har point ko dekhne ke liye
+hume kitna ghoomna padega — wo nikaalte hain.
+
+👉 Is number ko angle kehte hain.
+
+Phir hume aisa group chahiye jisme:
+
+maxAngle - minAngle <= viewAngle
+
+
+Aur size max ho.
+
+✅ Step 1 — Convert Points → Angles
+
+Har point (x, y) ke liye:
+
+dx = x - location.x
+dy = y - location.y
+angle = atan2(dy, dx)
+
+
+👉 atan2 batata hai direction.
+
+✅ atan2 kya karta hai?
+
+atan2(y, x) batata hai:
+
+👉 X-axis se kitna ghoomna padega us point ko dekhne ke liye.
+
+Examples:
+
+(1,0) → 0°
+(1,1) → 45°
+(0,1) → 90°
+(-1,0) → 180°
+
+
+Isliye hum tan use nahi karte — atan2 safe hai.
+
+✅ Step 2 — Same Location Points
+
+Agar koi point exactly location par hai:
+
+dx == 0 && dy == 0
+
+
+👉 Wo hamesha dikhega.
+👉 Usko alag count karo.
+
+✅ Step 3 — SORT kyon?
+
+Angles random hote hain:
+
+[120, 10, 300, 40]
+
+
+Sort ke baad:
+
+[10, 40, 120, 300]
+
+
+👉 Jo same direction ke paas hain, wo paas-paas aa jaate hain.
+
+Rule:
+
+Jab bhi range / window / difference chahiye → SORT.
+
+✅ Step 4 — Circular Problem
+
+Angles circle par hote hain:
+
+0° ----> 360° ----> 0°
+
+
+Example:
+
+350° and 10°
+
+
+Actually paas hain.
+
+But normal subtract fail karega.
+
+✅ Step 5 — Duplicate (+360)
+
+Circle ko line banane ke liye:
+
+Har angle ko dubara daalo +360 karke.
+
+Example:
+
+[10,40,120,300]
+→ [10,40,120,300,370,400,480,660]
+
+
+👉 Isse 300 → 10 continuous ban jaata hai.
+
+Rule:
+
+Circular data → duplicate → sliding window.
+
+✅ Step 6 — Sliding Window
+
+Two pointers:
+
+l = 0
+r = 0
+
+
+Window valid tab hai jab:
+
+angles[r] - angles[l] <= viewAngle
+
+
+Agar cross ho jaaye:
+
+angles[r] - angles[l] > viewAngle
+
+
+👉 left badhao.
+
+✅ Why condition is > angle?
+
+Hum galat window ko fix karte hain.
+
+while (angles[r] - angles[l] > angle)
+    l++;
+
+
+👉 Jab window zyada wide ho jaaye tab shrink.
+
+✅ Pattern Recognition (Interview Gold)
+
+Jab dikhe:
+
+direction
+
+angle
+
+circular
+
+maximum in range
+
+Socho:
+
+Convert → Sort → Duplicate → Sliding Window
+
+✅ Time & Space
+Time: O(n log n)
+Space: O(n)

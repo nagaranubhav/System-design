@@ -1,0 +1,208 @@
+===============================
+🔴 LEETCODE 685 — REDUNDANT CONNECTION II (TAGDE NOTES)
+===============================
+🧩 Problem Essence
+
+Graph:
+
+Directed
+
+Originally tree
+
+One extra edge added
+
+Tree Rules:
+
+Root has no parent
+
+Every node has exactly one parent
+
+No cycle
+
+Goal:
+👉 Remove one edge so graph becomes tree again.
+
+🧠 What Can Go Wrong?
+
+Only 2 things:
+
+1️⃣ A node gets two parents
+2️⃣ A cycle forms
+
+Extra edge can cause:
+
+only 1
+
+only 2
+
+both
+
+🧠 Core Thought (Interview Mindset)
+
+“A directed tree breaks only in two ways:
+multiple parents or cycle.”
+
+So always:
+
+Check parents
+
+Check cycle
+
+Decide
+
+🧠 Pattern Recognition
+
+If you see:
+
+directed graph
+
+tree + 1 extra edge
+
+return an edge
+
+Think instantly:
+
+👉 Two parents + DSU + case analysis
+
+🧠 Algorithm (High Level)
+parent[v] = who points to v
+
+cand1 = empty
+cand2 = empty
+
+Step 1: Find two parents
+for (u,v) in edges:
+    if parent[v] == 0:
+        parent[v] = u
+    else:
+        cand1 = (parent[v], v)
+        cand2 = (u, v)
+        mark cand2 invalid
+
+Step 2: Union-Find (skip cand2)
+for (u,v) in edges:
+    if invalid: continue
+    if union(u,v) fails:
+        if cand1 empty:
+            return (u,v)
+        else:
+            return cand1
+
+Step 3:
+return cand2
+
+🧠 Why Skip cand2?
+
+Because:
+
+cand2 is the later edge
+
+problem wants last appearing valid answer
+
+we test by removing cand2 first
+
+Logic:
+
+Try remove cand2
+If tree valid → cand2 wrong
+Else → cand1 wrong
+
+🧠 Decision Table
+Situation	Answer
+Cycle & no two parents	current edge
+Two parents & no cycle	cand2
+Two parents & cycle	cand1
+🧠 Guarantees (Very Important)
+
+Problem says:
+
+👉 Graph = tree + exactly one extra edge
+
+So:
+
+max one node has two parents
+
+cand1 & cand2 only once
+
+logic safe
+
+🧠 DSU Role
+
+Union Find checks:
+
+If find(u) == find(v)
+→ cycle detected
+
+
+Used only after handling two parents.
+
+🧠 Time / Space
+
+Time: O(N α(N))
+
+Space: O(N)
+
+🧠 Common Mistakes
+
+❌ Treat as undirected
+❌ Ignore two-parent case
+❌ Wrong edge returned order
+❌ Forget to skip cand2
+❌ Not trusting problem guarantee
+
+🧠 Mental Flow While Solving
+
+In head:
+
+“Check parents first.”
+“Store two candidates.”
+“Temporarily remove later one.”
+“Use DSU for cycle.”
+“Decide via cases.”
+
+🧠 Interview One-liner
+
+“Since the graph is a directed tree with one extra edge, I first detect if any node has two parents, then use Union-Find to detect cycles while skipping the later edge, and finally resolve using case analysis.”
+
+🧠 Memory Trick 😄
+
+Remember:
+
+P → Parent detect  
+S → Skip cand2  
+U → Union find  
+D → Decide  
+
+
+👉 PSUD
+
+🧠 Ultra-Short Cheat Version
+Find node with 2 parents → cand1, cand2
+Skip cand2
+Run DSU
+
+Cycle?
+   yes → cand1 (if exists)
+   no  → cand2
+
+❤️ Mentor Note
+
+Anubhav, agar tu sirf ye page revise kare:
+
+✔ logic yaad
+✔ approach yaad
+✔ interview explanation ready
+✔ code naturally likhne lagega
+
+Ye problem tab click karta hai jab logic yaad ho — code apne aap aata hai 💪
+
+😈 Last Tiny Check
+cand1=(x,v)
+cand2=(y,v)
+
+
+cand2 skip karke cycle aaya.
+
+👉 answer kaunsa?
+
+Reply in one word 😄
