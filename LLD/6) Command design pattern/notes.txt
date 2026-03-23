@@ -1,0 +1,140 @@
+
+====================== COMMAND DESIGN PATTERN ======================
+
+INTUITION:
+-----------
+Soch ek remote controller hai:
+- Button dabaya → Light ON
+- Button dabaya → Fan ON
+
+Problem:
+Remote ko ye nahi pata hona chahiye ki "Light kaise ON hoti hai"
+→ usko sirf "command execute karo" pata hona chahiye
+
+👉 Hum request ko object bana dete hain = Command Object
+
+--------------------------------------------------------------------
+
+DEFINITION:
+-----------
+Command Pattern is a Behavioral Design Pattern
+that converts a request into a stand-alone object
+containing all information about the request.
+
+--------------------------------------------------------------------
+
+WHY WE USE IT:
+---------------
+1. Decouple sender (Invoker) and receiver
+2. Undo/Redo support easily milta hai
+3. Commands ko queue/store/log kar sakte hain
+4. Macro commands bana sakte hain
+
+--------------------------------------------------------------------
+
+REAL LIFE ANALOGY:
+------------------
+Remote Controller:
+- Button = Invoker
+- Light/Fan = Receiver
+- Command = middleman jo bolta hai kya karna hai
+
+--------------------------------------------------------------------
+
+MAIN COMPONENTS:
+-----------------
+
+1. COMMAND (Interface)
+   - execute()
+   - undo()
+
+2. CONCRETE COMMAND
+   - actual implementation of command
+   - holds reference to receiver
+
+3. RECEIVER
+   - actual kaam karta hai (Light, Fan)
+
+4. INVOKER
+   - command ko trigger karta hai (Remote)
+
+5. CLIENT
+   - sabko connect karta hai (main function)
+
+--------------------------------------------------------------------
+
+FLOW:
+------
+Client → creates receiver
+       → creates command object
+       → assign command to invoker
+
+Invoker → execute() call karta hai
+
+Command → receiver ke method ko call karta hai
+
+--------------------------------------------------------------------
+
+KEY IDEA:
+----------
+Invoker ko nahi pata:
+- Light kya hai?
+- Fan kya hai?
+
+Invoker sirf bolta hai:
+👉 "execute()" ya "undo()"
+
+--------------------------------------------------------------------
+
+ADVANTAGES:
+------------
+✔ Loose Coupling
+✔ Undo/Redo support
+✔ Extensibility (new commands easily add)
+✔ Command history possible
+
+--------------------------------------------------------------------
+
+DISADVANTAGES:
+---------------
+❌ Extra classes banani padti hain
+❌ Simple cases me overkill ho sakta hai
+
+--------------------------------------------------------------------
+
+INTERVIEW QUESTIONS:
+--------------------
+
+Q1: Why not directly call light->on()?
+👉 Tight coupling ho jayega
+
+Q2: Undo kaise possible hua?
+👉 Command object me undo() define hai
+
+Q3: Difference between Strategy vs Command?
+👉 Strategy = behavior change
+👉 Command = request encapsulation
+
+Q4: Where used?
+👉 GUI buttons
+👉 Remote controls
+👉 Transaction systems
+👉 Undo systems (Text editors)
+
+--------------------------------------------------------------------
+
+ADVANCED EXTENSIONS:
+--------------------
+1. Macro Command (multiple commands ek saath)
+2. Command Queue (job scheduling)
+3. Undo Stack
+
+--------------------------------------------------------------------
+
+REMEMBER:
+----------
+👉 "Encapsulate request as an object"
+👉 "Invoker doesn't know receiver"
+👉 "execute() + undo() = core idea"
+
+====================================================================
