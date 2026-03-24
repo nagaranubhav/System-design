@@ -1,0 +1,153 @@
+───────────────────────────────────────────────────────────
+TEMPLATE METHOD DESIGN PATTERN
+───────────────────────────────────────────────────────────
+
+1. INTUITION
+
+Soch ek fixed process hai:
+chai banana ho → boil water → add tea → add milk → serve
+
+Har baar same steps, but kuch steps change ho sakte:
+koi adrak daale, koi elaichi
+
+Matlab:
+structure FIXED hai
+kuch steps CUSTOMIZABLE hai
+
+Yahi Template Method Pattern hai
+
+───────────────────────────────────────────────────────────
+2. DEFINITION
+
+Template Method Pattern ek Behavioral Design Pattern hai
+jo ek algorithm ka skeleton define karta hai base class me
+aur kuch steps subclasses pe chhod deta hai
+
+───────────────────────────────────────────────────────────
+3. CORE IDEA
+
+Base Class:
+defines → full algorithm flow
+
+Subclasses:
+override → specific steps
+
+IMPORTANT:
+order of execution → base class control karta hai
+
+───────────────────────────────────────────────────────────
+4. STRUCTURE
+
+Base Class:
+- template method (non-virtual / final)
+- abstract methods (must override)
+- optional hooks (can override)
+
+Derived Classes:
+- implement required steps
+
+───────────────────────────────────────────────────────────
+5. WHEN TO USE
+
+Use when:
+✔ process ka flow same hai
+✔ kuch steps vary karte hai
+✔ duplication avoid karna hai
+✔ control centralize karna hai
+
+Example:
+- ML pipelines
+- Game engines (render loop)
+- Payment processing
+- File parsing systems
+
+───────────────────────────────────────────────────────────
+6. UML DIAGRAM (VERY IMPORTANT FOR INTERVIEW)
+
+                ┌──────────────────────────┐
+                │     ModelTrainer         │
+                │──────────────────────────│
+                │ + trainPipeline()       │  ← Template Method
+                │──────────────────────────│
+                │ # loadData()            │
+                │ # preprocessData()      │
+                │ # trainModel() = 0      │ ← abstract
+                │ # evaluateModel() = 0   │ ← abstract
+                │ # saveModel()           │
+                └──────────┬──────────────┘
+                           │
+        ┌──────────────────┴──────────────────┐
+        │                                     │
+┌──────────────────────┐        ┌──────────────────────┐
+│ NeuralNetworkTrainer │        │ DecisionTreeTrainer  │
+│──────────────────────│        │──────────────────────│
+│ trainModel()         │        │ trainModel()         │
+│ evaluateModel()      │        │ evaluateModel()      │
+│ saveModel()          │        │ (default used)       │
+└──────────────────────┘        └──────────────────────┘
+
+───────────────────────────────────────────────────────────
+7. RELATIONSHIPS (INTERVIEW GOLD)
+
+IS-A RELATIONSHIP:
+NeuralNetworkTrainer IS-A ModelTrainer
+DecisionTreeTrainer IS-A ModelTrainer
+
+means:
+Inheritance (strong relation)
+
+HAS-A RELATIONSHIP:
+Not present here explicitly
+
+BUT conceptually:
+ModelTrainer HAS-A algorithm structure
+
+───────────────────────────────────────────────────────────
+8. FLOW CONTROL
+
+IMPORTANT POINT:
+subclasses algorithm control nahi kar sakte
+
+kyunki:
+template method base class me defined hai
+
+───────────────────────────────────────────────────────────
+9. ADVANTAGES
+
+✔ Code reuse
+✔ Consistent workflow
+✔ Control maintained in base class
+✔ Open for extension, closed for modification
+
+───────────────────────────────────────────────────────────
+10. DISADVANTAGES
+
+✘ Tight coupling due to inheritance
+✘ Hard to modify algorithm steps
+✘ Too many subclasses if variations increase
+
+───────────────────────────────────────────────────────────
+11. REAL WORLD ANALOGY
+
+Think of:
+Interview Process
+
+Steps:
+1. Resume screening
+2. Coding round
+3. System design
+4. HR round
+
+Company defines flow
+but interviewer vary kar sakta hai questions
+
+───────────────────────────────────────────────────────────
+12. INTERVIEW KEY POINTS
+
+- Template method = skeleton of algorithm
+- Defined in base class
+- Uses inheritance
+- Controls execution order
+- Uses abstract + hook methods
+
+───────────────────────────────────────────────────────────

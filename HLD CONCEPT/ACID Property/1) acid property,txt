@@ -1,0 +1,374 @@
+```id="acid-master"
+===========================================
+💎 ACID PROPERTIES — MASTER NOTES (FAANG LEVEL)
+===========================================
+
+🔥 FIRST PRINCIPLE (WHY ACID EXISTS?)
+-------------------------------------
+👉 Real world = unreliable
+   - Power failure ⚡
+   - Concurrent users 👥
+   - System crash 💥
+
+👉 Without ACID:
+   - Data corrupt 😵
+   - Money loss 💸
+   - Inconsistent DB
+
+💡 ACID ensures:
+👉 "Database is ALWAYS correct & reliable"
+
+
+===========================================
+🧠 WHAT IS A TRANSACTION?
+-------------------------------------------
+👉 A group of operations treated as ONE unit
+
+Example:
+Transfer ₹100 from A → B
+
+Steps:
+1) Debit A
+2) Credit B
+
+👉 This MUST behave as ONE unit
+
+
+===========================================
+1️⃣ ATOMICITY (ALL OR NOTHING 💣)
+===========================================
+
+🧠 INTUITION:
+-------------
+👉 Either EVERYTHING happens OR NOTHING happens
+
+-------------------------------------
+
+💥 EXAMPLE:
+-------------------------------------
+A = ₹1000, B = ₹500
+
+Transfer ₹100:
+
+Step 1: A = ₹900 ✅
+Step 2: B = ₹600 ❌ (crash here)
+
+👉 BAD STATE 😱
+
+-------------------------------------
+
+💡 ATOMICITY GUARANTEE:
+-------------------------------------
+👉 If any step fails:
+   Rollback EVERYTHING
+
+Final:
+A = ₹1000
+B = ₹500
+
+-------------------------------------
+
+⚙️ HOW IT IS IMPLEMENTED:
+-------------------------------------
+
+👉 Write Ahead Log (WAL)
+
+Example log:
+[START TRANSACTION]
+[DEBIT A -100]
+[CREDIT B +100]
+[COMMIT]
+
+👉 If crash before COMMIT:
+   → Undo all changes
+
+👉 If crash after COMMIT:
+   → Redo from log
+
+-------------------------------------
+
+🌍 REAL WORLD:
+-------------------------------------
+👉 Payment systems (UPI, banking)
+👉 E-commerce checkout
+
+-------------------------------------
+
+⚠️ COMMON MISTAKE:
+-------------------------------------
+❌ People think partial success is okay
+✔️ DB says: NO PARTIAL STATE
+
+
+===========================================
+2️⃣ CONSISTENCY (VALID STATE ALWAYS ✅)
+===========================================
+
+🧠 INTUITION:
+-------------
+👉 DB must follow ALL rules/invariants
+
+-------------------------------------
+
+📌 WHAT ARE INVARIANTS?
+-------------------------------------
+👉 Rules like:
+
+✔️ Balance ≥ 0
+✔️ Foreign key valid
+✔️ Unique constraints
+
+-------------------------------------
+
+💥 EXAMPLE:
+-------------------------------------
+
+Before:
+Total money = ₹1500
+
+After transfer:
+Still ₹1500 ✅
+
+👉 No money created/destroyed
+
+-------------------------------------
+
+💡 CONSISTENCY GUARANTEE:
+-------------------------------------
+👉 Transaction moves DB:
+VALID STATE → VALID STATE
+
+-------------------------------------
+
+⚙️ HOW IT IS IMPLEMENTED:
+-------------------------------------
+
+1) Constraints:
+   - Primary key
+   - Foreign key
+   - Unique
+
+2) Application logic
+
+-------------------------------------
+
+⚠️ IMPORTANT INSIGHT:
+-------------------------------------
+👉 DB ensures constraints
+👉 Developer ensures business logic
+
+-------------------------------------
+
+🌍 REAL WORLD:
+-------------------------------------
+👉 Airline booking:
+   Seat count cannot go negative
+
+👉 Inventory system:
+   Stock cannot be < 0
+
+
+===========================================
+3️⃣ ISOLATION (NO INTERFERENCE 🧱)
+===========================================
+
+🧠 INTUITION:
+-------------
+👉 Multiple transactions act like they run alone
+
+-------------------------------------
+
+💥 PROBLEM:
+-------------------------------------
+
+User1: Book seat S1
+User2: Book seat S1
+
+👉 Without isolation:
+   BOTH may get same seat 😱
+
+-------------------------------------
+
+💡 ISOLATION GUARANTEE:
+-------------------------------------
+👉 No race conditions
+👉 No dirty reads
+
+-------------------------------------
+
+⚠️ ANOMALIES (VERY IMPORTANT)
+-------------------------------------
+
+1️⃣ DIRTY READ:
+-------------------------------------
+👉 Read uncommitted data
+
+Example:
+T1 updates balance → NOT committed
+T2 reads it → WRONG
+
+-------------------------------------
+
+2️⃣ NON-REPEATABLE READ:
+-------------------------------------
+👉 Same query → different result
+
+-------------------------------------
+
+3️⃣ PHANTOM READ:
+-------------------------------------
+👉 New rows appear suddenly
+
+-------------------------------------
+
+🔒 ISOLATION LEVELS:
+-------------------------------------
+
+1) Read Uncommitted ❌
+2) Read Committed
+3) Repeatable Read
+4) Serializable (Strongest 💪)
+
+-------------------------------------
+
+⚙️ HOW IMPLEMENTED:
+-------------------------------------
+
+👉 Locks (pessimistic)
+👉 MVCC (optimistic)
+
+-------------------------------------
+
+🌍 REAL WORLD:
+-------------------------------------
+👉 Ticket booking systems
+👉 Stock trading systems
+
+
+===========================================
+4️⃣ DURABILITY (DATA NEVER LOST 💾)
+===========================================
+
+🧠 INTUITION:
+-------------
+👉 Once committed → ALWAYS saved
+
+-------------------------------------
+
+💥 PROBLEM:
+-------------------------------------
+👉 System crash after payment
+
+👉 Without durability:
+   Payment gone 😱
+
+-------------------------------------
+
+💡 DURABILITY GUARANTEE:
+-------------------------------------
+👉 After COMMIT:
+   Data survives crashes
+
+-------------------------------------
+
+⚙️ HOW IMPLEMENTED:
+-------------------------------------
+
+1) WAL (Write Ahead Log)
+   → Always written to disk first
+
+2) Disk persistence
+
+3) Replication (advanced systems)
+
+-------------------------------------
+
+🌍 REAL WORLD:
+-------------------------------------
+👉 Banking transactions
+👉 Order confirmations
+
+-------------------------------------
+
+⚠️ IMPORTANT:
+-------------------------------------
+👉 Memory ≠ durable
+👉 Disk = durable
+
+
+===========================================
+⚔️ INTERVIEW COMPARISON SUMMARY
+===========================================
+
+| Property    | Meaning                  | Focus             |
+|------------|--------------------------|-------------------|
+| Atomicity  | All or nothing           | Failure handling  |
+| Consistency| Valid state              | Rules/invariants  |
+| Isolation  | No interference          | Concurrency       |
+| Durability | Never lost after commit  | Persistence       |
+
+===========================================
+🧠 DEEP INSIGHTS (INTERVIEW GOLD 🔥)
+===========================================
+
+👉 Atomicity + Durability = WAL magic
+
+👉 Isolation = hardest problem in DB
+
+👉 Consistency ≠ same as CAP consistency
+   (VERY IMPORTANT CONFUSION)
+
+-------------------------------------
+
+🔥 GOLDEN LINE:
+-------------------------------------
+👉 ACID = correctness under failures + concurrency
+
+
+===========================================
+⚠️ REAL WORLD TRADEOFFS
+===========================================
+
+👉 Strict ACID → slower systems
+
+👉 Modern systems:
+   - Relax isolation (eventual consistency)
+   - Use BASE instead of ACID
+
+-------------------------------------
+
+Example:
+👉 NoSQL DBs sacrifice strict ACID
+
+
+===========================================
+🔥 FINAL ANALOGY (SUPER IMPORTANT)
+===========================================
+
+Transaction = Online Shopping 🛒
+
+Atomicity:
+👉 Either full order placed or nothing
+
+Consistency:
+👉 Stock & payment correct
+
+Isolation:
+👉 No one steals your item mid-checkout
+
+Durability:
+👉 Order stays even after crash
+
+===========================================
+🚀 WHAT TO LEARN NEXT
+===========================================
+
+1) MVCC (Multi-Version Concurrency Control)
+2) 2-Phase Locking (2PL)
+3) CAP Theorem vs ACID
+4) BASE properties (NoSQL systems)
+
+===========================================
+END 🚀
+===========================================
+```

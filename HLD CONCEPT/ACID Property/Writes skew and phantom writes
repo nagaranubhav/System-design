@@ -1,0 +1,347 @@
+// ============================================================
+// 🔥 CONCURRENCY ANOMALIES: WRITE SKEW & PHANTOM WRITE
+// ============================================================
+
+// ============================================================
+// 🧠 0. PEHLE FOUNDATION SAMAJH (VERY IMPORTANT)
+// ============================================================
+
+// Problem kya hai?
+// DB me multiple transactions ek saath run karte hain (concurrent execution)
+
+// Har transaction:
+// 1. Data READ karta hai
+// 2. Decision leta hai
+// 3. Data WRITE karta hai
+
+// Issue:
+// Agar 2 transactions same data dekh ke decision lete hain,
+// toh final result galat ho sakta hai
+
+// 👉 Isko bolte hain "Concurrency Anomaly"
+
+
+// ============================================================
+// 🔥 1. WRITE SKEW (CORE CONCEPT)
+// ============================================================
+
+// 🧠 INTUITION (REAL LIFE):
+// Fridge me 2 pizza hai 🍕🍕
+// Rule: At least 1 pizza hamesha rehna chahiye
+
+// Person A: "Pizza hai?" → YES → kha liya
+// Person B: "Pizza hai?" → YES → kha liya
+
+// Final: 0 pizza ❌ rule break
+
+// 👉 Yehi WRITE SKEW hai
+
+
+// ============================================================
+// 💡 DEFINITION:
+// ============================================================
+
+// Write Skew tab hota hai jab:
+// - 2 transactions SAME condition read karte hain
+// - Lekin DIFFERENT rows update karte hain
+// - Aur milke constraint tod dete hain
+
+
+// ============================================================
+// 🧪 CLASSIC EXAMPLE (INTERVIEW FAVORITE)
+// ============================================================
+
+/*
+Table: Doctors(id, on_call)
+
+Rule:
+At least 1 doctor must be on call
+*/
+
+// Initial State:
+// A = ON
+// B = ON
+
+
+// ----------------------
+// Transaction T1
+// ----------------------
+// Step 1: Check B → ON (safe)
+// Step 2: Set A = OFF
+
+
+// ----------------------
+// Transaction T2
+// ----------------------
+// Step 1: Check A → ON (safe)
+// Step 2: Set B = OFF
+
+
+// ----------------------
+// FINAL STATE
+// ----------------------
+// A = OFF
+// B = OFF ❌ (constraint violated)
+
+
+// ============================================================
+// ❌ WHY WRITE SKEW HAPPENED?
+// ============================================================
+
+// 🔥 MOST IMPORTANT LINE:
+// DB locks ROWS, not BUSINESS LOGIC
+
+// T1 ne A ko lock kiya
+// T2 ne B ko lock kiya
+
+// 👉 No conflict → DB allowed both
+
+// BUT rule depend karta tha:
+// A + B (combined state)
+
+// 👉 DB ko ye pata hi nahi tha ki ye dangerous hai
+
+
+// ============================================================
+// 🛠️ WRITE SKEW SOLUTIONS
+// ============================================================
+
+// ----------------------
+// ✅ Solution 1: SERIALIZABLE
+// ----------------------
+
+// DB force karta hai sequential execution
+
+// T1 pura run karega → phir T2
+
+// T1: A = OFF
+// T2: A ko check karega → OFF → STOP
+
+// ✔ Safe but thoda slow
+
+
+// ----------------------
+// ✅ Solution 2: LOCK ALL RELATED ROWS
+// ----------------------
+
+// Instead of locking only A or B,
+// dono rows ko lock karo
+
+/*
+SQL:
+SELECT * FROM Doctors WHERE on_call = true FOR UPDATE;
+*/
+
+// 👉 T1 aur T2 dono same rows lock karne ki koshish karenge
+// 👉 Ek wait karega
+
+// ✔ Conflict visible → problem solved
+
+
+// ----------------------
+// ✅ Solution 3: MATERIALIZE CONSTRAINT
+// ----------------------
+
+// 🧠 Idea:
+// Constraint ko ek SINGLE row me convert karo
+
+// Example:
+
+/*
+Table: OnCallCount(count = 2)
+*/
+
+// T1: count-- → 1
+// T2: count-- → 0 ❌ not allowed
+
+// 👉 Dono same row update kar rahe hain
+// 👉 DB easily conflict detect karega
+
+// ✔ Very powerful technique
+
+
+// ============================================================
+// 🔥 2. PHANTOM WRITE (ADVANCED VERSION)
+// ============================================================
+
+// 🧠 INTUITION:
+
+// Write Skew me:
+// Rows EXIST karte the
+
+// Phantom me:
+// Rows EXIST hi nahi karte initially
+
+
+// ============================================================
+// 💡 DEFINITION:
+// ============================================================
+
+// Phantom Write tab hota hai jab:
+// - Transactions condition check karte hain
+// - Rows exist nahi karte
+// - Dono insert kar dete hain
+// - Final state me conflict aa jata hai
+
+
+// ============================================================
+// 🧪 EXAMPLE (SUPER IMPORTANT)
+// ============================================================
+
+/*
+Table: Meetings(room_id, time)
+
+Rule:
+Ek room me ek hi time pe sirf 1 meeting ho sakti hai
+*/
+
+
+// Initial:
+// No meeting at (Room1, 10AM)
+
+
+// ----------------------
+// Transaction T1
+// ----------------------
+// Check: koi meeting nahi → OK
+// Insert: (Room1, 10AM)
+
+
+// ----------------------
+// Transaction T2
+// ----------------------
+// Check: koi meeting nahi → OK
+// Insert: (Room1, 10AM)
+
+
+// ----------------------
+// FINAL
+// ----------------------
+// 2 meetings at same time ❌
+
+
+// ============================================================
+// ❌ WHY PHANTOM WRITE HAPPENED?
+// ============================================================
+
+// 🔥 GOLDEN LINE:
+// DB cannot lock what DOES NOT EXIST
+
+// Jab T1 ne check kiya → row nahi thi
+// Jab T2 ne check kiya → row nahi thi
+
+// 👉 Isliye koi lock nahi laga
+
+// 👉 Dono ne insert kar diya
+
+
+// ============================================================
+// 🛠️ PHANTOM WRITE SOLUTION
+// ============================================================
+
+// ❌ Direct locking kaam nahi karega
+// kyunki row exist hi nahi karti
+
+
+// ----------------------
+// ✅ SOLUTION: MATERIALIZE CONFLICT
+// ----------------------
+
+// 🧠 Idea:
+// Rows pehle se bana do (pre-create)
+
+// Example:
+
+/*
+Table: Slots(room, time, booked)
+
+Pre-created rows:
+(Room1, 10AM, false)
+*/
+
+
+// ----------------------
+// Transaction Flow
+// ----------------------
+
+/*
+SELECT * FROM Slots
+WHERE room=1 AND time=10AM
+FOR UPDATE;
+*/
+
+// Then:
+/// booked = true
+
+
+// ----------------------
+// KYA HOGA?
+// ----------------------
+
+// T1 aur T2 dono same row lock karne aayenge
+// Ek wait karega
+
+// 👉 Only one booking possible
+
+// ✔ Problem solved
+
+
+// ============================================================
+// 🔥 WRITE SKEW vs PHANTOM WRITE
+// ============================================================
+
+// Write Skew:
+// - Existing rows pe kaam
+// - UPDATE operation
+// - Multi-row constraint break
+
+// Phantom Write:
+// - Non-existing rows
+// - INSERT operation
+// - Conflict invisible at read time
+
+
+// ============================================================
+// 🧠 CORE INSIGHT (INTERVIEW GOLD)
+// ============================================================
+
+// 👉 "If DB cannot SEE the conflict, it cannot PREVENT it"
+
+// Write Skew:
+// Conflict hidden across multiple rows
+
+// Phantom:
+// Conflict hidden because row not present
+
+// 👉 Solution always:
+// Make conflict VISIBLE to DB
+
+
+// ============================================================
+// 🔥 INTERVIEW READY ANSWER
+// ============================================================
+
+// Q: Why Repeatable Read fails?
+
+// Ans:
+// "Because it ensures row-level consistency,
+// but fails to prevent predicate-based anomalies
+// like write skew and phantom inserts."
+
+
+// ============================================================
+// 🚀 FINAL REVISION SHORT NOTES
+// ============================================================
+
+// Write Skew:
+// Read same data → update different rows → break constraint
+
+// Phantom:
+// Check passes → insert happens → later conflict
+
+// Fix:
+// - Serializable isolation
+// - Explicit locking
+// - Materializing conflicts
+
+// ============================================================

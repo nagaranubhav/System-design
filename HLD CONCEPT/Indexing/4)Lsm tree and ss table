@@ -1,0 +1,403 @@
+```id="lsm-master"
+===========================================
+🚀 LSM TREE — ULTRA DEEP DIVE (FAANG LEVEL)
+===========================================
+
+🔥 FIRST PRINCIPLE (WHY LSM TREE EXISTS?)
+-----------------------------------------
+👉 Disk has 2 types of operations:
+
+1) Random Write ❌ (VERY SLOW)
+2) Sequential Write ✅ (VERY FAST)
+
+👉 B-Tree problem:
+   - Random disk updates (node splits, rebalancing)
+   - Write becomes expensive 😵
+
+💡 LSM IDEA:
+👉 "Never update in place"
+👉 "Always append"
+
+➡️ Convert random writes → sequential writes
+
+===========================================
+🧠 CORE INTUITION (MENTAL MODEL)
+-------------------------------------------
+Soch tu notes likh raha hai 📓:
+
+❌ B-Tree:
+   Har baar purane page edit karta hai
+
+✅ LSM Tree:
+   Naya page likh deta hai
+   Baad me clean/merge karta hai
+
+👉 Write fast, clean later
+
+
+===========================================
+🏗️ COMPONENTS (BUILDING BLOCKS)
+===========================================
+
+1️⃣ WAL (Write Ahead Log)
+---------------------------------
+👉 Disk pe append-only log
+
+Example:
+[PUT A=1]
+[PUT B=2]
+
+✔️ Crash recovery
+✔️ Durability guarantee
+
+---------------------------------
+
+2️⃣ MEMTABLE (IN MEMORY)
+---------------------------------
+👉 Sorted structure (Red-Black / AVL)
+
+Example:
+A=1, B=2, C=3 (sorted)
+
+✔️ Fast writes (RAM)
+✔️ Maintains order
+
+---------------------------------
+
+3️⃣ SSTABLE (ON DISK)
+---------------------------------
+👉 Sorted String Table
+
+🔥 KEY PROPERTIES:
+✔️ Sorted
+✔️ Immutable (VERY IMPORTANT)
+✔️ Stored on disk
+
+Example:
+File1: A=1, B=2
+File2: B=3, D=4
+
+---------------------------------
+
+===========================================
+✍️ WRITE PATH (STEP BY STEP)
+===========================================
+
+Step 1:
+👉 Write to WAL (disk)
+
+Step 2:
+👉 Insert into MemTable (RAM)
+
+Step 3:
+👉 MemTable FULL?
+
+   YES →
+   Flush to disk → Create SSTable
+
+   NO →
+   Continue writing
+
+---------------------------------
+
+🔥 KEY OBSERVATION:
+👉 Disk write = sequential only
+👉 Hence VERY FAST 🚀
+
+
+===========================================
+📖 READ PATH (VERY IMPORTANT)
+===========================================
+
+👉 Search order:
+
+1) MemTable
+2) Newest SSTable
+3) Older SSTables...
+
+---------------------------------
+
+⚠️ PROBLEM:
+👉 Same key multiple places ho sakta hai
+
+Example:
+MemTable: B=5
+SST2:     B=3
+SST1:     B=2
+
+👉 Correct answer = latest (B=5)
+
+---------------------------------
+
+⚠️ READ COST:
+👉 Multiple files check karne padte hain 😵
+
+
+===========================================
+🗑️ DELETE OPERATION (TOMBSTONE)
+===========================================
+
+🔥 BIG QUESTION:
+👉 "Agar SSTable immutable hai, toh delete kaise?"
+
+💡 ANSWER:
+👉 We DON'T delete
+👉 We MARK as deleted
+
+---------------------------------
+
+🧠 WHAT IS TOMBSTONE?
+---------------------------------
+👉 Special marker indicating:
+   "This key is deleted"
+
+---------------------------------
+
+Example:
+
+Initial:
+SST1: A=1, B=2
+
+Delete B:
+
+MemTable:
+B = TOMBSTONE ❌
+
+Flush → SST2:
+B = TOMBSTONE
+
+---------------------------------
+
+📖 READ BEHAVIOR:
+---------------------------------
+👉 If tombstone found → key treated as deleted
+
+---------------------------------
+
+🔥 WHY TOMBSTONE?
+---------------------------------
+👉 Immutable files → can't remove entry
+👉 So we override with delete marker
+
+---------------------------------
+
+⚠️ PROBLEM:
+---------------------------------
+👉 Data still exists in old SSTables
+👉 Disk waste
+
+---------------------------------
+
+💡 SOLUTION:
+👉 COMPACTION (later remove permanently)
+
+
+===========================================
+⚠️ MAJOR PROBLEMS IN LSM TREE
+===========================================
+
+1) MANY SSTABLES
+   👉 Too many files → slow reads
+
+2) DUPLICATE KEYS
+   👉 Same key multiple versions
+
+3) TOMBSTONES
+   👉 Deleted data still taking space
+
+4) READ AMPLIFICATION
+   👉 One read → many disk reads 😵
+
+
+===========================================
+💡 OPTIMIZATIONS (VERY IMPORTANT)
+===========================================
+
+---------------------------------
+1️⃣ BLOOM FILTER 🌸
+---------------------------------
+
+🧠 INTUITION:
+👉 "Avoid unnecessary disk reads"
+
+👉 Fast probabilistic structure
+
+---------------------------------
+
+✔️ If says "NOT PRESENT" → 100% true
+❌ If says "PRESENT" → maybe
+
+---------------------------------
+
+Example:
+Search key=Z
+
+Bloom filter:
+→ "Not present"
+
+👉 Skip SSTable entirely 🚀
+
+---------------------------------
+
+2️⃣ SPARSE INDEX
+---------------------------------
+
+🧠 INTUITION:
+👉 Don't store full index (too big)
+
+👉 Store checkpoints
+
+---------------------------------
+
+Example:
+Store:
+A → offset 0
+M → offset 500
+Z → offset 1000
+
+👉 Binary search → jump → scan small range
+
+---------------------------------
+
+3️⃣ COMPACTION (MOST IMPORTANT)
+---------------------------------
+
+🧠 INTUITION:
+👉 "Clean garbage + merge data"
+
+---------------------------------
+
+Example:
+
+Before:
+SST1: A=1, B=2
+SST2: B=3, C=4
+SST3: B=TOMBSTONE
+
+---------------------------------
+
+After compaction:
+👉 Remove old versions
+👉 Apply latest updates
+
+Result:
+A=1, C=4
+
+(B removed completely)
+
+---------------------------------
+
+🔥 TYPES OF COMPACTION:
+---------------------------------
+
+1) Size-tiered
+   👉 Merge similar size files
+
+2) Leveled compaction
+   👉 Organized in levels (L1, L2...)
+
+---------------------------------
+
+⚠️ TRADEOFF:
+---------------------------------
+✔️ Clean data
+❌ Background CPU + IO cost
+
+
+===========================================
+📊 AMPLIFICATION CONCEPTS (INTERVIEW GOLD)
+===========================================
+
+1️⃣ WRITE AMPLIFICATION
+---------------------------------
+👉 One write → multiple disk writes
+
+Reason:
+Compaction
+
+---------------------------------
+
+2️⃣ READ AMPLIFICATION
+---------------------------------
+👉 One read → multiple SSTable reads
+
+---------------------------------
+
+3️⃣ SPACE AMPLIFICATION
+---------------------------------
+👉 Extra disk usage due to:
+   - duplicates
+   - tombstones
+
+---------------------------------
+
+
+===========================================
+⚔️ LSM vs B-TREE (DEEP INSIGHT)
+===========================================
+
+LSM:
+👉 Write optimized
+👉 Sequential writes
+👉 Background cleanup
+
+B-Tree:
+👉 Read optimized
+👉 Random writes
+👉 Immediate consistency
+
+---------------------------------
+
+🔥 KEY INTERVIEW LINE:
+---------------------------------
+👉 LSM delays work (lazy cleanup)
+👉 B-Tree does work immediately
+
+
+===========================================
+🌍 REAL WORLD SYSTEM DESIGN USE
+===========================================
+
+👉 Cassandra → write-heavy apps
+👉 RocksDB → storage engines
+👉 Bigtable → Google infra
+👉 Kafka (log structured concept)
+
+---------------------------------
+
+📌 WHERE LSM SHINES:
+---------------------------------
+✔️ Logging systems
+✔️ Analytics pipelines
+✔️ High write throughput systems
+
+❌ Avoid when:
+👉 Heavy range queries
+👉 Low latency reads critical
+
+
+===========================================
+🔥 FINAL ANALOGY (REMEMBER THIS)
+===========================================
+
+LSM Tree = Messy Desk + Weekend Cleanup
+
+👉 Weekdays:
+   Keep dumping files (fast writes)
+
+👉 Weekend:
+   Organize everything (compaction)
+
+===========================================
+🚀 NEXT LEVEL TOPICS
+===========================================
+
+1) LSM internal leveling (L0, L1, L2)
+2) Compaction strategies deep dive
+3) How RocksDB implements this
+4) Tuning LSM (Bloom filter size, memtable size)
+
+===========================================
+END 🚀
+===========================================
+```

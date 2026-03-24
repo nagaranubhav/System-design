@@ -1,0 +1,387 @@
+```
+===========================
+📦 DATABASE INDEXING — MASTER NOTES (FAANG LEVEL)
+===========================
+
+🔥 First Principles (INTUITION)
+--------------------------------
+Soch ek library 📚 hai jisme millions of books hain.
+
+👉 Without index:
+   - Har baar tumhe book dhoondhne ke liye full scan karna padega
+   - Time = O(N)
+
+👉 With index:
+   - Tumhare paas ek "shortcut map" hai
+   - Time drastically reduce ho jata hai
+
+👉 Real DB:
+   - Table = actual data
+   - Index = extra data structure for fast lookup
+
+⚠️ Tradeoff:
+   Faster Reads ✅
+   Slower Writes ❌ (kyunki index bhi update karna padta hai)
+
+
+=====================================================
+1️⃣ HASH INDEX (In-Memory HashMap Style)
+=====================================================
+
+🧠 INTUITION:
+-------------
+Direct mapping: key → memory address
+
+Jaise:
+Phonebook = name → phone number
+
+👉 Hash function -> instant location
+
+-------------------------------------
+⚙️ HOW IT WORKS:
+-------------------------------------
+key → hash(key) → bucket → value
+
+-------------------------------------
+⏱️ COMPLEXITY:
+-------------------------------------
+Read:  O(1)
+Write: O(1)
+
+-------------------------------------
+❌ PROBLEM (VERY IMPORTANT):
+-------------------------------------
+👉 NO ORDERING
+👉 Hence: RANGE QUERY IMPOSSIBLE
+
+Example:
+Find users with age between 20–30 ❌
+
+-------------------------------------
+📦 STORAGE:
+-------------------------------------
+👉 Mostly in-memory (RAM)
+👉 Why?
+   Hash access requires random access → disk is slow
+
+-------------------------------------
+⚠️ DURABILITY PROBLEM:
+-------------------------------------
+Memory crash → data gone 😱
+
+-------------------------------------
+💡 SOLUTION: WAL (Write Ahead Log)
+-------------------------------------
+👉 Every write first goes to disk log
+
+Append-only log:
+[INSERT A]
+[INSERT B]
+
+👉 Then update hashmap
+
+👉 Crash recovery:
+   Replay WAL
+
+-------------------------------------
+🌍 REAL WORLD USE:
+-------------------------------------
+👉 Redis (in-memory DB)
+👉 Memcached
+👉 Caching layers
+
+-------------------------------------
+📌 WHEN TO USE:
+-------------------------------------
+✔️ Ultra-fast reads needed
+✔️ Exact key lookup
+❌ NOT for range queries
+
+
+=====================================================
+2️⃣ B-TREE INDEX (DISK FRIENDLY KING 👑)
+=====================================================
+
+🧠 INTUITION:
+-------------
+Binary tree ka optimized version for DISK
+
+👉 Problem:
+Disk seek is expensive 😵
+
+👉 Solution:
+Make tree "wide" not "tall"
+
+-------------------------------------
+⚙️ STRUCTURE:
+-------------------------------------
+- Multi-way tree (not binary)
+- Each node stores MANY keys
+- Stored in disk pages (like 4KB blocks)
+
+Example:
+| 10 | 20 | 30 |
+ /    |     \
+...  ...   ...
+
+-------------------------------------
+🎯 WHY WIDE TREE?
+-------------------------------------
+👉 Less height → fewer disk reads
+
+Height ≈ log_fanout(N)
+
+-------------------------------------
+⏱️ COMPLEXITY:
+-------------------------------------
+Read:  O(log N)
+Write: O(log N)
+
+BUT:
+👉 Disk I/O dominates cost
+
+-------------------------------------
+📌 KEY FEATURE:
+-------------------------------------
+✔️ SORTED ORDER maintained
+
+-------------------------------------
+💥 RANGE QUERY MAGIC:
+-------------------------------------
+Find users age 20–30:
+
+👉 Go to 20
+👉 Traverse sequentially till 30
+
+🔥 SUPER FAST
+
+-------------------------------------
+⚠️ WRITES ARE EXPENSIVE:
+-------------------------------------
+👉 Node split
+👉 Rebalancing
+👉 Disk rewrite
+
+-------------------------------------
+💡 DURABILITY:
+-------------------------------------
+Two approaches:
+
+1) In-place update (simple, risky)
+2) Copy-on-write (used in real DBs)
+
+👉 Modify new page → update pointer
+
+-------------------------------------
+🌍 REAL WORLD USE:
+-------------------------------------
+👉 MySQL (InnoDB)
+👉 PostgreSQL
+👉 SQLite
+
+-------------------------------------
+📌 WHEN TO USE:
+-------------------------------------
+✔️ Range queries
+✔️ Ordered data
+✔️ General purpose DB
+
+
+=====================================================
+3️⃣ LSM TREE + SSTABLE (WRITE-OPTIMIZED BEAST 🚀)
+=====================================================
+
+🧠 INTUITION:
+-------------
+👉 Instead of updating disk again and again,
+👉 Keep writing sequentially (append only)
+
+"Sequential writes = fast on disk"
+
+-------------------------------------
+⚙️ COMPONENTS:
+-------------------------------------
+
+1) MemTable (in RAM)
+   - Balanced tree (AVL / Red-Black)
+   - Sorted
+
+2) WAL (Write Ahead Log)
+   - For durability
+
+3) SSTables (on disk)
+   - Sorted
+   - Immutable (IMPORTANT)
+
+-------------------------------------
+✍️ WRITE FLOW:
+-------------------------------------
+1) Write to WAL (disk)
+2) Insert into MemTable (RAM)
+
+👉 When MemTable full:
+   → Flush to disk as SSTable
+
+-------------------------------------
+📖 READ FLOW:
+-------------------------------------
+Search order:
+
+1) MemTable
+2) Latest SSTable
+3) Older SSTables...
+
+⚠️ WHY SLOW READ?
+Because multiple files check karne padte hain
+
+-------------------------------------
+🗑️ DELETE (VERY IMPORTANT):
+-------------------------------------
+👉 No direct delete
+
+Instead:
+👉 Add "TOMBSTONE"
+
+Example:
+DELETE key=5
+→ Insert: (5, deleted)
+
+-------------------------------------
+⚠️ PROBLEMS:
+-------------------------------------
+1) Many SSTables → slow reads
+2) Duplicate keys
+3) Disk space waste
+
+-------------------------------------
+💡 SOLUTIONS (OPTIMIZATIONS)
+-------------------------------------
+
+-------------------------------------
+1) 🔍 SPARSE INDEX
+-------------------------------------
+👉 Not full index
+
+Example:
+Store every 100th key
+
+👉 Binary search + scan
+
+-------------------------------------
+2) 🌸 BLOOM FILTER
+-------------------------------------
+👉 Fast probabilistic check
+
+✔️ "Key NOT present" → 100% correct
+❌ "Key present" → maybe
+
+👉 Avoid unnecessary disk reads
+
+-------------------------------------
+3) 🔄 COMPACTION (VERY IMPORTANT)
+-------------------------------------
+👉 Merge SSTables
+
+Before:
+SST1: A=1, B=2
+SST2: B=3
+
+After:
+Merged: A=1, B=3
+
+✔️ Remove duplicates
+✔️ Remove tombstones
+
+⚠️ Tradeoff:
+Extra CPU in background
+
+-------------------------------------
+⏱️ COMPLEXITY:
+-------------------------------------
+Write: VERY FAST (sequential)
+Read:  Slower than B-Tree
+
+-------------------------------------
+🌍 REAL WORLD USE:
+-------------------------------------
+👉 Cassandra
+👉 RocksDB
+👉 LevelDB
+👉 Bigtable
+
+-------------------------------------
+📌 WHEN TO USE:
+-------------------------------------
+✔️ Write-heavy systems
+✔️ Logs, analytics
+✔️ High throughput systems
+
+
+=====================================================
+⚔️ COMPARISON (INTERVIEW GOLD 🔥)
+=====================================================
+
+| Feature        | Hash Index | B-Tree     | LSM Tree       |
+|---------------|-----------|-----------|----------------|
+| Read Speed     | 🔥 Fast    | ⚡ Fast     | 🐢 Slower       |
+| Write Speed    | 🔥 Fast    | 🐢 Slow     | 🚀 Very Fast    |
+| Range Query    | ❌ No      | ✅ Yes      | ⚠️ Poor         |
+| Storage        | RAM       | Disk       | RAM + Disk      |
+| Durability     | WAL       | Built-in   | WAL             |
+| Use Case       | Cache     | OLTP DB    | Write-heavy DB  |
+
+=====================================================
+🧠 INTERVIEW INSIGHTS (VERY IMPORTANT)
+=====================================================
+
+💬 If interviewer asks:
+"Design a DB for heavy writes?"
+
+👉 Answer:
+Use LSM Tree
+
+💬 If:
+"Need range queries?"
+
+👉 Answer:
+B-Tree
+
+💬 If:
+"Need ultra fast lookup (cache)?"
+
+👉 Answer:
+Hash Index
+
+-----------------------------------------------------
+
+🎯 GOLDEN LINE (REMEMBER THIS):
+--------------------------------
+👉 B-Trees optimize READS
+👉 LSM Trees optimize WRITES
+
+=====================================================
+🔥 FINAL ANALOGY (SUPER IMPORTANT)
+=====================================================
+
+Hash Index:
+👉 Like dictionary (exact word search only)
+
+B-Tree:
+👉 Like sorted book index (range browsing possible)
+
+LSM Tree:
+👉 Like writing notes in diary and organizing later
+
+=====================================================
+🚀 WHAT TO LEARN NEXT:
+=====================================================
+
+1) B+ Trees (used in real DBs)
+2) How MySQL uses clustered index
+3) Read amplification vs write amplification
+4) CAP theorem + consistency tradeoffs
+
+===========================
+END OF NOTES 🚀
+===========================
+```

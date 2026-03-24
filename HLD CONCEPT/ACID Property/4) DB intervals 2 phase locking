@@ -1,0 +1,400 @@
+============================================================
+🔥 TWO PHASE LOCKING (2PL) — COMPLETE MASTER NOTES
+============================================================
+
+
+============================================================
+🧠 1. CONCURRENCY FOUNDATION
+============================================================
+
+Concurrent Execution ka matlab:
+Multiple transactions ek hi time pe run ho rahi hoti hain
+
+Execution actually parallel nahi hota hamesha,
+but DB interleaving karta hai operations ka
+
+Example:
+
+T1: Read A
+T2: Read A
+T1: Write A
+T2: Write A
+
+Is interleaving ki wajah se bugs aate hain
+
+
+------------------------------------------------------------
+⚠️ Concurrency Problems
+------------------------------------------------------------
+
+Lost Update:
+Ek transaction dusre ka update overwrite kar deta hai
+
+Dirty Read:
+Uncommitted data read ho jata hai
+
+Write Skew:
+Different rows update karke constraint tod dete hain
+
+Phantom:
+New rows suddenly appear ho jaate hain
+
+
+------------------------------------------------------------
+⚖️ Tradeoff
+------------------------------------------------------------
+
+Serial Execution:
+Slow but correct
+
+Concurrent Execution:
+Fast but risky
+
+Goal:
+Concurrency + Correctness
+
+
+============================================================
+🔥 2. TWO PHASE LOCKING (2PL) — CORE IDEA
+============================================================
+
+2PL ek locking protocol hai jo ensure karta hai:
+Serializability + Safe concurrency
+
+Har transaction locks use karta hai data access ke liye
+
+
+------------------------------------------------------------
+🔐 Lock ka concept
+------------------------------------------------------------
+
+Transaction jab bhi data read/write karega,
+usko pehle lock lena padega
+
+Data ko bina lock ke access nahi kar sakte
+
+
+============================================================
+⚙️ 3. TWO PHASES OF 2PL
+============================================================
+
+Phase 1: Growing Phase
+Transaction sirf locks acquire kar sakta hai
+Release nahi kar sakta
+
+Example flow:
+Lock A
+Lock B
+Lock C
+
+
+------------------------------------------------------------
+
+Phase 2: Shrinking Phase
+Transaction sirf locks release kar sakta hai
+New lock acquire nahi kar sakta
+
+Example flow:
+Unlock C
+Unlock B
+Unlock A
+
+
+------------------------------------------------------------
+🔥 Golden Rule
+------------------------------------------------------------
+
+Jab ek baar lock release kar diya,
+uske baad new lock acquire nahi kar sakte
+
+
+============================================================
+🧠 4. WHY 2PL WORKS
+============================================================
+
+2PL ensure karta hai ki:
+Transactions ka execution logically serializable ho
+
+Matlab:
+Final result aisa hoga jaise transactions ek ke baad ek chale ho
+
+Isse:
+Race conditions avoid hote hain
+Conflicting operations control hote hain
+
+
+============================================================
+🔐 5. TYPES OF LOCKS
+============================================================
+
+Shared Lock (S):
+Read ke liye use hota hai
+Multiple transactions same data read kar sakte hain
+
+Example:
+T1 reads A
+T2 reads A → allowed
+
+
+------------------------------------------------------------
+
+Exclusive Lock (X):
+Write ke liye use hota hai
+Sirf ek transaction access kar sakta hai
+
+Example:
+T1 writes A
+T2 read/write nahi kar sakta
+
+
+------------------------------------------------------------
+🔄 Lock Compatibility
+------------------------------------------------------------
+
+Shared vs Shared → Allowed
+Shared vs Exclusive → Not allowed
+Exclusive vs Exclusive → Not allowed
+
+
+============================================================
+🔥 6. TYPES OF 2PL
+============================================================
+
+Basic 2PL:
+Follows growing + shrinking phases
+Locks early release ho sakte hain
+
+Problem:
+Cascading aborts possible
+
+
+------------------------------------------------------------
+
+Strict 2PL:
+Exclusive locks commit ke baad release hote hain
+
+Benefits:
+Dirty read nahi hota
+Cascading abort avoid hota hai
+
+
+------------------------------------------------------------
+
+Rigorous 2PL:
+Saare locks (Shared + Exclusive)
+commit ke baad release hote hain
+
+Strongest consistency
+
+
+============================================================
+❌ 7. PROBLEMS IN 2PL
+============================================================
+
+
+------------------------------------------------------------
+🚨 PROBLEM 1: DEADLOCK
+------------------------------------------------------------
+
+Situation:
+2 transactions ek dusre ka wait kar rahe hain
+
+Example:
+
+T1:
+Lock A
+Wait for B
+
+T2:
+Lock B
+Wait for A
+
+Result:
+Infinite wait → system stuck
+
+
+------------------------------------------------------------
+🧠 Real Life Analogy
+------------------------------------------------------------
+
+Person A ke paas chair hai
+Person B ke paas table hai
+
+A ko table chahiye
+B ko chair chahiye
+
+Dono wait karte rahenge
+
+
+------------------------------------------------------------
+🛠️ Solutions
+------------------------------------------------------------
+
+Deadlock Detection:
+System wait-for graph banata hai
+Cycle detect karke ek transaction kill karta hai
+
+Deadlock Prevention:
+
+Wait-Die:
+Old transaction wait karega
+Young transaction abort hoga
+
+Wound-Wait:
+Old transaction young ko abort karega
+Young wait karega
+
+
+============================================================
+🚨 PROBLEM 2: CASCADING ABORTS
+============================================================
+
+Situation:
+Ek transaction dusre ke uncommitted data pe depend karta hai
+
+Example:
+
+T1 writes A = 100 (not committed)
+T2 reads A = 100
+
+Agar T1 fail ho gaya:
+T2 bhi rollback karna padega
+
+Chain reaction ho jata hai
+
+
+------------------------------------------------------------
+🛠️ Solution
+------------------------------------------------------------
+
+Strict 2PL:
+Locks commit ke baad release hote hain
+
+Isse:
+Dirty read nahi hota
+Cascading abort eliminate ho jata hai
+
+
+============================================================
+🚨 PROBLEM 3: PHANTOM PROBLEM
+============================================================
+
+Situation:
+Query condition based hoti hai
+
+Example:
+SELECT * WHERE age > 20
+
+Dusra transaction new row insert kar deta hai
+
+Result:
+New row suddenly appear ho jata hai
+
+
+------------------------------------------------------------
+🧠 Issue
+------------------------------------------------------------
+
+2PL row-level locking karta hai
+Condition ko lock nahi karta
+
+
+============================================================
+🛠️ 8. SOLUTION: PREDICATE LOCKS
+============================================================
+
+Predicate Lock ka matlab:
+Condition ko lock karna instead of rows
+
+Example:
+age > 20
+
+Ab:
+Koi bhi transaction age > 20 insert nahi kar sakta
+
+
+------------------------------------------------------------
+⚠️ Problem
+------------------------------------------------------------
+
+Implement karna difficult hai
+Performance heavy hai
+
+
+============================================================
+🛠️ 9. INDEX RANGE LOCKS (PRACTICAL APPROACH)
+============================================================
+
+Idea:
+Condition ke jagah index range lock karo
+
+Example:
+age index hai
+
+Lock range:
+(20, ∞)
+
+Ab:
+Is range me koi insert nahi kar sakta
+
+
+------------------------------------------------------------
+🔥 Real Databases
+------------------------------------------------------------
+
+MySQL InnoDB:
+Next-Key Locks use karta hai
+
+PostgreSQL:
+Range locking approach use karta hai
+
+
+============================================================
+🧠 10. CORE INSIGHTS
+============================================================
+
+Locks control access to data
+2PL control karta hai kab locks lene aur chhodne hain
+
+Concurrency ko safe banane ke liye:
+Conflicts ko control karna padta hai
+
+Agar DB conflict dekh nahi paata,
+toh usse prevent bhi nahi kar sakta
+
+
+============================================================
+⚖️ 11. FINAL UNDERSTANDING
+============================================================
+
+2PL ek balance hai:
+
+Correctness:
+High (serializability)
+
+Performance:
+Moderate (locking overhead)
+
+Problems:
+Deadlock
+Blocking
+Phantom handling complexity
+
+
+============================================================
+🔥 12. INTERVIEW READY SUMMARY
+============================================================
+
+2PL ek locking protocol hai jo transactions ko
+2 phases me divide karta hai:
+Growing phase aur shrinking phase
+
+Ye ensure karta hai serializable execution
+but introduce karta hai deadlocks aur blocking
+
+Strict 2PL cascading aborts solve karta hai
+aur predicate/index range locks phantom problem handle karte hain
+
+Goal:
+Safe concurrency with controlled performance
+============================================================
