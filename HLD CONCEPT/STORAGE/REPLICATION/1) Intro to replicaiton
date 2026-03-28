@@ -1,0 +1,357 @@
+========================
+DATABASE REPLICATION — COMPLETE NOTES
+========================
+
+-------------------------------------
+1. REAL LIFE INTUITION (VERY IMPORTANT)
+-------------------------------------
+
+Example 1: Instagram
+- Millions of users posting, liking, commenting
+- If only ONE database exists:
+    → It will crash under load
+    → If it goes down → whole app down
+
+Solution:
+- Multiple copies of same database → REPLICATION
+
+Example 2: Google Docs
+- You type → friend sees instantly
+- But sometimes slight delay
+    → This is replication with eventual consistency
+
+Example 3: Banking
+- When you transfer money → MUST be correct immediately
+    → Uses STRONG consistency
+
+-------------------------------------
+2. WHAT IS REPLICATION?
+-------------------------------------
+
+Replication = Keeping multiple copies of same data across multiple machines
+
+Primary Goal:
+- Improve READ scalability
+- Improve availability
+- Fault tolerance (if one DB dies → others serve)
+
+Basic Architecture:
+    Primary (Leader) → writes happen here
+    Replicas (Followers) → copies of data
+
+-------------------------------------
+3. WHY DO WE NEED REPLICATION?
+-------------------------------------
+
+1. SCALABILITY
+- Reads can be distributed across replicas
+- Example:
+    1 million users reading → split across 10 replicas
+
+2. AVAILABILITY
+- If primary crashes → replicas can take over
+
+3. FAULT TOLERANCE
+- Data is not lost if one machine fails
+
+4. LOW LATENCY (geo-distribution)
+- User in India → reads from India replica
+- User in US → reads from US replica
+
+-------------------------------------
+4. TYPES OF REPLICATION
+-------------------------------------
+
+-------------------------------------
+4.1 SYNCHRONOUS REPLICATION
+-------------------------------------
+
+INTUITION:
+- Think WhatsApp double tick (message delivered)
+- Write is ONLY successful when ALL replicas confirm
+
+FLOW:
+Client → Primary → Replica1 → Replica2 → ACK → Response
+
+Example:
+Bank transfer:
+- ₹1000 deducted only if all replicas updated
+
+PROPERTIES:
+- Strong consistency
+- No stale data
+- High latency
+
+PROBLEM:
+- Slow (must wait for replicas)
+- If one replica down → system may block
+
+USE CASE:
+- Banking systems
+- Payment systems
+
+-------------------------------------
+4.2 ASYNCHRONOUS REPLICATION
+-------------------------------------
+
+INTUITION:
+- Instagram post → appears instantly, followers see later
+
+FLOW:
+Client → Primary (ACK immediately)
+        → Replicas updated later
+
+Example:
+- You post reel → visible to you immediately
+- Friends may see after some milliseconds
+
+PROPERTIES:
+- Fast writes
+- Eventually consistent
+- Can have stale reads
+
+PROBLEM:
+- Replica lag
+- Data inconsistency temporarily
+
+USE CASE:
+- Social media
+- Analytics systems
+
+-------------------------------------
+5. CONSISTENCY MODELS
+-------------------------------------
+
+-------------------------------------
+5.1 STRONG CONSISTENCY
+-------------------------------------
+
+Definition:
+- Every read gets latest write
+
+Example:
+- Bank balance must be exact
+
+If you deposit ₹100:
+- All replicas MUST show ₹100 immediately
+
+Trade-offs:
++ Correctness
+- Slow
+- Less available
+
+-------------------------------------
+5.2 EVENTUAL CONSISTENCY
+-------------------------------------
+
+Definition:
+- System will become consistent "eventually"
+
+Example:
+- Twitter likes count
+- Amazon product reviews
+
+You like a post:
+- Immediately you see it
+- Others may see after delay
+
+IMPORTANT:
+- System guarantees convergence
+
+Trade-offs:
++ Fast
++ Highly scalable
+- Temporary inconsistency
+
+-------------------------------------
+WHY EVENTUAL CONSISTENCY IS USED MORE?
+-------------------------------------
+
+Because modern systems need:
+- High scalability
+- Low latency
+- Global distribution
+
+Strong consistency becomes bottleneck
+
+Rule of thumb:
+- Critical systems → Strong
+- High-scale apps → Eventual
+
+-------------------------------------
+6. STALE READS
+-------------------------------------
+
+Definition:
+- Reading old/outdated data from replica
+
+Example:
+- You update profile pic
+- Open app on another device → old pic visible
+
+Why happens:
+- Replica lag in async replication
+
+Problems:
+- Confusing UX
+- Wrong decisions
+
+Mitigation:
+- Read from primary (for critical reads)
+- Read-after-write consistency
+- Versioning
+
+-------------------------------------
+7. HOW REPLICATION ACTUALLY WORKS (DEEP)
+-------------------------------------
+
+-------------------------------------
+7.1 SQL-BASED REPLICATION
+-------------------------------------
+
+Idea:
+- Send SQL queries to replicas
+
+Primary executes:
+    INSERT INTO users VALUES (1, "Anubhav")
+
+Replica also executes same query
+
+PROBLEM:
+- Non-deterministic queries (NOW(), RANDOM())
+- Order issues
+
+So not preferred in modern systems
+
+-------------------------------------
+7.2 WAL (WRITE AHEAD LOG) REPLICATION
+-------------------------------------
+
+MOST IMPORTANT 🔥
+
+INTUITION:
+- Instead of sending SQL, send "what changed"
+
+WAL = log of every change in database
+
+Flow:
+1. Write happens
+2. Change recorded in WAL
+3. WAL shipped to replicas
+4. Replicas replay WAL
+
+Example:
+- Instead of "INSERT query"
+- Send: "row 5 updated with value X"
+
+ADVANTAGES:
++ Faster
++ Accurate
++ No ambiguity
+
+Used in:
+- PostgreSQL
+- MySQL (binlog)
+
+-------------------------------------
+7.3 REPLICATION LOG BASED (GENERALIZED)
+-------------------------------------
+
+This is generalized concept of WAL
+
+Primary maintains:
+- Replication log
+
+Replica:
+- Reads log
+- Applies changes
+
+Flow:
+Primary → Log → Replica → Apply changes
+
+-------------------------------------
+8. REPLICATION LAG
+-------------------------------------
+
+Definition:
+- Delay between primary update and replica update
+
+Example:
+Primary updated at 10:00:00
+Replica updated at 10:00:02
+
+Lag = 2 seconds
+
+Causes:
+- Network delay
+- High load
+- Disk I/O
+
+Problems:
+- Stale reads
+
+-------------------------------------
+9. TRADE-OFFS SUMMARY
+-------------------------------------
+
+Synchronous:
++ Strong consistency
+- High latency
+- Low availability
+
+Asynchronous:
++ Fast
++ Scalable
+- Stale reads
+- Eventual consistency
+
+-------------------------------------
+10. INTERVIEW GOLD POINTS ⭐
+-------------------------------------
+
+1. Always ask:
+    - Read heavy or write heavy system?
+
+2. Suggest:
+    - Async replication for scale
+    - Sync for critical data
+
+3. Mention:
+    - Read replicas
+    - Leader election (failover)
+
+4. Talk about:
+    - Replication lag
+    - Stale reads mitigation
+
+5. Advanced:
+    - Multi-leader replication
+    - Conflict resolution
+
+-------------------------------------
+11. QUICK REVISION
+-------------------------------------
+
+Replication = multiple DB copies
+
+Synchronous:
+    → slow but consistent
+
+Asynchronous:
+    → fast but inconsistent (temporarily)
+
+Strong consistency:
+    → always correct
+
+Eventual consistency:
+    → correct later
+
+Stale reads:
+    → old data from replica
+
+Best practice:
+    → Use async + handle inconsistencies smartly
+
+-------------------------------------
+END NOTES
+-------------------------------------

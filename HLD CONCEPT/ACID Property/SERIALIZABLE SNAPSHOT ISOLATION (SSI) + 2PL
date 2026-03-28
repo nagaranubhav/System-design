@@ -1,0 +1,376 @@
+SERIALIZABLE SNAPSHOT ISOLATION (SSI) + 2PL + OCC COMPLETE NOTES (HINGLISH)
+
+───────────────────────────────────────────────────────────
+1. PROBLEM STATEMENT (WHY WE NEED THIS)
+───────────────────────────────────────────────────────────
+
+Multiple transactions ek hi time pe database pe kaam karte hain
+
+Goal:
+- Data consistent rahe
+- Performance fast rahe
+
+Issue:
+- Agar proper control nahi hua toh:
+  Dirty Read
+  Lost Update
+  Write Skew
+  Phantom Problems
+
+Isliye hume concurrency control chahiye
+
+Main approaches:
+1. Pessimistic → 2PL
+2. Optimistic → OCC / Snapshot Isolation / SSI
+
+───────────────────────────────────────────────────────────
+2. TWO PHASE LOCKING (2PL)
+───────────────────────────────────────────────────────────
+
+Mindset:
+"Mujhe lagta hai conflicts honge → pehle hi sab lock kar do"
+
+Working:
+- Phase 1: Locks acquire karo
+- Phase 2: Locks release karo
+
+Types:
+- Shared lock (read)
+- Exclusive lock (write)
+
+Properties:
+- Serializable
+- Safe
+
+Problems:
+- Blocking hota hai
+- Deadlocks ho sakte hain
+- Performance slow ho jati hai
+
+Real life:
+Seat booking
+Bank balance update
+Inventory system
+
+───────────────────────────────────────────────────────────
+3. OPTIMISTIC CONCURRENCY CONTROL (OCC)
+───────────────────────────────────────────────────────────
+
+Mindset:
+"Mujhe lagta hai conflicts rare hain → freely kaam karo, end me check karo"
+
+Steps:
+
+1. Read Phase
+- Snapshot se read karo
+- No locks
+
+2. Work Phase
+- Changes local rakho
+
+3. Validation Phase
+- Check karo ki conflict hua ya nahi
+
+4. Commit / Abort
+- Valid → commit
+- Conflict → rollback + retry
+
+Advantage:
+- High concurrency
+- No blocking
+
+Disadvantage:
+- Retry karna pad sakta hai
+
+───────────────────────────────────────────────────────────
+4. SNAPSHOT ISOLATION (SI)
+───────────────────────────────────────────────────────────
+
+Definition:
+Snapshot = database ka ek fixed state at a given time
+
+Transaction apne snapshot pe kaam karta hai
+Even if database change ho jaye baad me
+
+Example:
+T1 snapshot me A = 100 dekhta hai
+T2 update karke A = 50 kar deta hai
+T1 ko fir bhi 100 hi dikhega
+
+Properties:
+- Readers writers ko block nahi karte
+- Writers readers ko block nahi karte
+- High performance
+
+BUT:
+Serializable guarantee nahi deta
+
+───────────────────────────────────────────────────────────
+5. DIRECT CONFLICT KYA HOTA HAI
+───────────────────────────────────────────────────────────
+
+Conflict tab hota hai jab same data item pe clash ho
+
+Types:
+
+1. Write-Write conflict
+T1 writes A
+T2 writes A
+
+2. Read-Write conflict
+T1 reads A
+T2 writes A before T1 commit
+
+Agar alag-alag data items pe kaam ho raha hai
+Toh direct conflict nahi hota
+
+───────────────────────────────────────────────────────────
+6. WRITE SKEW PROBLEM (MOST IMPORTANT)
+───────────────────────────────────────────────────────────
+
+Example: Doctors On Call
+
+Rule:
+At least 1 doctor ON hona chahiye
+
+Initial:
+A = ON
+B = ON
+
+Transactions:
+
+T1:
+- Read B
+- Write A = OFF
+
+T2:
+- Read A
+- Write B = OFF
+
+Observation:
+T1 writes A
+T2 writes B
+
+Same data pe write nahi ho raha
+Isliye:
+No Write-Write conflict
+No direct Read-Write conflict
+
+Final state:
+A = OFF
+B = OFF
+
+Rule break ho gaya
+
+Key Insight:
+Conflict data pe nahi, logic pe tha
+
+───────────────────────────────────────────────────────────
+7. ROOT CAUSE OF FAILURE
+───────────────────────────────────────────────────────────
+
+Hidden dependency hai
+
+T1 depends on B
+T2 modifies B
+
+T2 depends on A
+T1 modifies A
+
+Dependency graph:
+T1 → T2
+T2 → T1
+
+Cycle present hai
+
+Isko bolte hain:
+Serialization cycle
+
+Snapshot Isolation ye detect nahi karta
+Isliye fail ho jata hai
+
+───────────────────────────────────────────────────────────
+8. SERIALIZABLE SNAPSHOT ISOLATION (SSI)
+───────────────────────────────────────────────────────────
+
+Definition:
+Snapshot Isolation + Dependency tracking
+
+Goal:
+Ensure serializability without heavy locking
+
+───────────────────────────────────────────────────────────
+9. SSI KA WORKING (STEP BY STEP)
+───────────────────────────────────────────────────────────
+
+Step 1: Transactions start
+T1 snapshot leta hai
+T2 snapshot leta hai
+
+Step 2: Reads track kiye jaate hain
+T1 read → B
+T2 read → A
+
+Step 3: Writes hote hain
+T1 write → A
+T2 write → B
+
+Step 4: Dependencies detect hoti hain
+
+Case 1:
+T1 ne B read kiya
+T2 ne B write kiya
+T1 → T2
+
+Case 2:
+T2 ne A read kiya
+T1 ne A write kiya
+T2 → T1
+
+Step 5: Graph ban gaya
+T1 → T2 → T1
+
+Cycle detect ho gaya
+
+Step 6: Abort
+System ek transaction abort karega
+
+Example:
+T2 abort
+
+Final:
+A = OFF
+B = ON
+
+Rule satisfied
+
+───────────────────────────────────────────────────────────
+10. SSI KA CORE IDEA
+───────────────────────────────────────────────────────────
+
+Snapshot Isolation:
+Sirf data conflicts check karta hai
+
+SSI:
+Logical dependencies + cycles check karta hai
+
+Golden line:
+Conflict data pe nahi, dependency pe detect hota hai
+
+───────────────────────────────────────────────────────────
+11. DANGEROUS STRUCTURE
+───────────────────────────────────────────────────────────
+
+Pattern:
+T1 → T2 → T3
+
+Agar ye chain complete ho gayi
+Toh cycle ban sakta hai
+
+SSI early abort kar deta hai
+Taaki cycle na bane
+
+───────────────────────────────────────────────────────────
+12. 2PL VS SSI COMPARISON
+───────────────────────────────────────────────────────────
+
+2PL:
+- Pessimistic
+- Locks use karta hai
+- Slow
+- Deadlocks possible
+- High contention systems ke liye best
+
+SSI:
+- Optimistic
+- No heavy locks
+- Fast
+- No deadlocks
+- Low contention systems ke liye best
+
+───────────────────────────────────────────────────────────
+13. KAB 2PL USE KARE
+───────────────────────────────────────────────────────────
+
+Jab:
+- Same data pe frequent writes ho
+- Conflict chances high ho
+
+Examples:
+- Bank account updates
+- Ticket booking (same seat)
+- Inventory (last item)
+
+Reason:
+Retry expensive hota hai
+Isliye lock better hai
+
+───────────────────────────────────────────────────────────
+14. KAB SSI USE KARE
+───────────────────────────────────────────────────────────
+
+Jab:
+- Read heavy system ho
+- Conflict rare ho
+
+Examples:
+- Social media feeds
+- E-commerce browsing
+- Analytics dashboards
+
+Reason:
+High concurrency chahiye
+Retry acceptable hai
+
+───────────────────────────────────────────────────────────
+15. REAL LIFE ANALOGY
+───────────────────────────────────────────────────────────
+
+Library:
+
+2PL:
+Book pe lock laga diya
+Jab tak return nahi hoti
+Koi aur use nahi kar sakta
+
+SSI:
+Sabko book de di
+End me check:
+Agar clash hua
+Toh kisi ek ko retry karna padega
+
+Doctors case:
+
+Without SSI:
+A: B duty pe hai → main chhutti
+B: A duty pe hai → main chhutti
+Result: No doctor
+
+With SSI:
+System detect karta hai:
+Dono ek dusre pe depend hain
+Ek ko hi allow karega
+Dusre ko abort karega
+
+───────────────────────────────────────────────────────────
+16. FINAL INTERVIEW SUMMARY
+───────────────────────────────────────────────────────────
+
+2PL:
+Conflicts prevent karta hai using locks
+
+SSI:
+Conflicts detect karta hai using dependency graph
+
+Snapshot Isolation:
+Fast hai but not always correct
+
+SSI:
+Fast + Correct (Serializable)
+
+Most Important Concept:
+Write skew occurs when transactions update different rows but violate a global constraint, and SSI prevents it by detecting cycles in dependency graph
+
+───────────────────────────────────────────────────────────
+END OF NOTES
+───────────────────────────────────────────────────────────

@@ -1,0 +1,384 @@
+==================================================
+SINGLE LEADER REPLICATION — COMPLETE MASTER NOTES
+==================================================
+
+--------------------------------------------------
+0. REAL LIFE INTUITION (VERY IMPORTANT)
+--------------------------------------------------
+
+Example 1: Google Docs (simplified model)
+- Only ONE server decides final version (leader)
+- Others just copy data
+
+Example 2: Banking system
+- All transactions go to ONE main database
+- Other databases are just replicas
+
+Example 3: Instagram
+- When you post → goes to main server
+- Feed reading → from replicas
+
+CORE IDEA:
+→ ONE authority for writes
+→ MANY copies for reads
+
+--------------------------------------------------
+1. WHAT IS SINGLE LEADER REPLICATION?
+--------------------------------------------------
+
+DEFINITION:
+- One node = LEADER (Primary)
+- Other nodes = FOLLOWERS (Replicas)
+
+RULE:
+- ALL WRITES → go to LEADER
+- FOLLOWERS → only replicate and serve reads
+
+--------------------------------------------------
+2. BASIC ARCHITECTURE (MENTAL MODEL)
+--------------------------------------------------
+
+Client → Leader (write)
+              ↓
+         Replication Log
+              ↓
+     Followers (apply changes)
+
+Flow:
+1. Client sends write
+2. Leader updates data
+3. Leader logs change (WAL/binlog)
+4. Followers copy and apply changes
+
+--------------------------------------------------
+3. WHY DO WE USE SINGLE LEADER?
+--------------------------------------------------
+
+-------------------------------------
+EXAMPLE: E-commerce (Amazon)
+-------------------------------------
+
+- Orders must be correct
+- No two conflicting updates
+
+WHY SINGLE LEADER:
+- Avoids conflicts
+- Ensures order of writes
+
+-------------------------------------
+BENEFITS
+-------------------------------------
+
+1. SIMPLE DESIGN
+- One authority → easy reasoning
+
+2. STRONG CONSISTENCY (if sync)
+- No conflicting writes
+
+3. NO CONFLICT RESOLUTION NEEDED
+- Leader decides everything
+
+4. EASY DEBUGGING
+- All writes centralized
+
+-------------------------------------
+TRADE-OFFS
+-------------------------------------
+
+- Leader = bottleneck
+- Single point of failure
+- Write scalability limited
+
+--------------------------------------------------
+4. HOW DATA FLOWS (DEEP UNDERSTANDING)
+--------------------------------------------------
+
+-------------------------------------
+STEP-BY-STEP FLOW
+-------------------------------------
+
+1. Client sends write request
+2. Leader:
+    - Updates DB
+    - Writes to WAL (Write Ahead Log)
+3. Leader sends log to followers
+4. Followers replay log
+
+-------------------------------------
+IMPORTANT INSIGHT
+-------------------------------------
+
+Followers do NOT execute random queries
+→ They just REPLAY exact changes
+
+This ensures consistency
+
+--------------------------------------------------
+5. SYNCHRONOUS VS ASYNCHRONOUS (IN THIS MODEL)
+--------------------------------------------------
+
+-------------------------------------
+SYNC MODE
+-------------------------------------
+
+- Leader waits for followers before ACK
+
+Example:
+Bank transfer → must confirm everywhere
+
++ Strong consistency
+- Slow
+
+-------------------------------------
+ASYNC MODE
+-------------------------------------
+
+- Leader responds immediately
+- Followers update later
+
+Example:
+Instagram post
+
++ Fast
+- Stale reads possible
+
+--------------------------------------------------
+6. FAILURE SCENARIOS (VERY IMPORTANT 🔥)
+--------------------------------------------------
+
+==================================================
+6.1 FOLLOWER GOES DOWN
+==================================================
+
+-------------------------------------
+REAL LIFE EXAMPLE
+-------------------------------------
+
+- Instagram has 5 replicas
+- One replica crashes
+
+-------------------------------------
+WHAT HAPPENS?
+-------------------------------------
+
+- Leader still works
+- Other followers still serve reads
+- System continues normally
+
+-------------------------------------
+PROBLEM
+-------------------------------------
+
+- That follower is OUTDATED
+- Misses updates
+
+-------------------------------------
+WHEN IT COMES BACK?
+-------------------------------------
+
+- It must CATCH UP
+
+-------------------------------------
+HOW?
+-------------------------------------
+
+1. Read replication log (WAL)
+2. Replay missing updates
+
+-------------------------------------
+EDGE CASE
+-------------------------------------
+
+If logs deleted:
+→ Full resync needed (expensive)
+
+-------------------------------------
+TRADE-OFF
+-------------------------------------
+
++ System stays available
+- Recovery cost
+- Possible stale reads
+
+==================================================
+6.2 LEADER GOES DOWN
+==================================================
+
+-------------------------------------
+REAL LIFE EXAMPLE
+-------------------------------------
+
+- Main DB crashes during Amazon checkout
+
+-------------------------------------
+WHAT HAPPENS?
+-------------------------------------
+
+- No writes possible ❌
+- Reads may still work (from followers)
+
+-------------------------------------
+BIG PROBLEM
+-------------------------------------
+
+System becomes READ-ONLY
+
+-------------------------------------
+NEED:
+-------------------------------------
+
+Leader Election (failover)
+
+-------------------------------------
+TEMPORARY ISSUES
+-------------------------------------
+
+- Downtime
+- Data loss (if async replication)
+
+Example:
+Write accepted by leader but not yet replicated
+→ Leader crashes
+→ That write LOST
+
+-------------------------------------
+TRADE-OFF
+-------------------------------------
+
++ Simplicity
+- Availability issue during failure
+
+(NOTE: Election mechanism deep me baad me aata hai)
+
+==================================================
+6.3 SPLIT BRAIN (VERY IMPORTANT 🔥🔥)
+==================================================
+
+-------------------------------------
+REAL LIFE ANALOGY
+-------------------------------------
+
+Think 2 captains on one ship:
+- Both giving different orders
+→ Chaos
+
+-------------------------------------
+WHAT IS SPLIT BRAIN?
+-------------------------------------
+
+Two nodes think they are LEADER at same time
+
+-------------------------------------
+HOW IT HAPPENS?
+-------------------------------------
+
+Network partition:
+
+Leader A         Followers B,C
+   |                  |
+---Network Break------
+   |                  |
+
+Now:
+- A thinks: "I am leader"
+- B,C elect new leader
+
+→ TWO LEADERS
+
+-------------------------------------
+REAL WORLD EXAMPLE
+-------------------------------------
+
+User A writes to Leader1:
+    balance = 100
+
+User B writes to Leader2:
+    balance = 200
+
+Now:
+→ Data conflict 💥
+
+-------------------------------------
+WHY THIS IS DANGEROUS?
+-------------------------------------
+
+- Data corruption
+- Inconsistent state
+- Hard to recover
+
+-------------------------------------
+SOLUTIONS (HIGH LEVEL)
+-------------------------------------
+
+1. QUORUM BASED ELECTION
+- Majority decides leader
+
+2. FENCING TOKENS
+- Old leader rejected
+
+3. LEASE MECHANISM
+- Leader valid only for time period
+
+-------------------------------------
+TRADE-OFF
+-------------------------------------
+
++ Prevents corruption
+- Adds complexity
+- Requires coordination
+
+--------------------------------------------------
+7. BIG PICTURE FLOW (CONNECT EVERYTHING)
+--------------------------------------------------
+
+Normal Flow:
+Client → Leader → Followers
+
+Failure Flow:
+Follower down → recover via logs
+Leader down → election needed
+Network partition → split brain risk
+
+--------------------------------------------------
+8. INTERVIEW GOLD POINTS ⭐
+--------------------------------------------------
+
+If interviewer asks:
+"Design a scalable DB"
+
+You say:
+
+Step 1:
+→ Use Single Leader Replication
+
+Step 2:
+→ Writes → leader
+→ Reads → followers
+
+Step 3:
+→ Async replication for scale
+
+Step 4:
+→ Handle failures:
+    - Follower crash → log replay
+    - Leader crash → failover
+    - Split brain → quorum
+
+Step 5:
+→ Mention trade-offs
+
+--------------------------------------------------
+9. FINAL INTUITION
+--------------------------------------------------
+
+Single Leader = CONTROL
+
+- One brain → no confusion
+- But if brain dies → system struggles
+
+So:
+→ Simple but needs backup strategies
+
+--------------------------------------------------
+END NOTES
+--------------------------------------------------
