@@ -1,0 +1,312 @@
+=========================================================
+          MEDIATOR vs OBSERVER DESIGN PATTERN
+=========================================================
+
+BOTH CATEGORY:
+Behavioral Design Pattern
+
+Dono loose coupling dete hain.
+Dono event-based lag sakte hain.
+BUT core intent bilkul different hai.
+
+=========================================================
+1) ONE-LINE DIFFERENCE (MOST IMPORTANT)
+=========================================================
+
+MEDIATOR:
+"Objects ke beech interaction ko centralize karta hai"
+
+OBSERVER:
+"State/event change hone par subscribers ko notify karta hai"
+
+Golden memory trick:
+
+Mediator = COORDINATION
+Observer = NOTIFICATION
+
+=========================================================
+2) CORE INTENT DIFFERENCE
+=========================================================
+
+---------------------------------------------------------
+MEDIATOR INTENT
+---------------------------------------------------------
+Many objects aapas me interact karte hain.
+
+Goal:
+Interaction rules ko ek central object me daalna.
+
+Example:
+- chat room
+- ATC tower
+- UI dialog controls
+- booking orchestrator
+
+Main idea:
+Objects know only mediator
+Objects don't know each other
+
+---------------------------------------------------------
+OBSERVER INTENT
+---------------------------------------------------------
+One object ki state change hoti hai,
+baaki interested objects ko auto notify karna.
+
+Example:
+- YouTube subscribers
+- stock price alerts
+- event listeners
+- notification service
+
+Main idea:
+Subject keeps list of observers
+State changes → notify all
+
+=========================================================
+3) REAL LIFE ANALOGY
+=========================================================
+
+---------------------------------------------------------
+MEDIATOR
+---------------------------------------------------------
+Office manager.
+
+Employees directly ek dusre ko coordinate nahi karte.
+Manager sabka work coordinate karta.
+
+---------------------------------------------------------
+OBSERVER
+---------------------------------------------------------
+YouTube channel.
+
+New video upload hui → sab subscribers ko notification.
+
+=========================================================
+4) UML MINDSET
+=========================================================
+
+---------------------------------------------------------
+MEDIATOR UML
+---------------------------------------------------------
+
+ User1 ----\
+ User2 ----- > Mediator ----> routes interaction
+ User3 ----/
+
+Many-to-many interactions centralized
+
+---------------------------------------------------------
+OBSERVER UML
+---------------------------------------------------------
+
+              +------------------+
+              |     Subject      |
+              +------------------+
+              | observers[]      |
+              +------------------+
+                 /      |      \
+                /       |       \
+               v        v        v
+          Observer1 Observer2 Observer3
+
+One-to-many notification model
+
+=========================================================
+5) DEPENDENCY FLOW DIFFERENCE
+=========================================================
+
+MEDIATOR:
+Object -> Mediator -> Other Objects
+
+OBSERVER:
+Subject -> All Observers
+
+Key:
+Mediator = bidirectional communication possible
+Observer = mostly one-way push from subject
+
+=========================================================
+6) WHO INITIATES COMMUNICATION?
+=========================================================
+
+MEDIATOR:
+Any colleague initiates.
+Mediator decides routing.
+
+Example:
+User sends message → mediator routes
+
+OBSERVER:
+Subject initiates.
+Observers passive listeners.
+
+Example:
+Stock price changed → observers auto notified
+
+=========================================================
+7) RELATIONSHIP STYLE
+=========================================================
+
+MEDIATOR:
+Many objects interacting with each other
+
+Think:
+many ↔ many
+via central controller
+
+OBSERVER:
+One subject, many listeners
+
+Think:
+one → many
+
+=========================================================
+8) WHERE TO USE IN INTERVIEW
+=========================================================
+
+---------------------------------------------------------
+USE MEDIATOR WHEN:
+---------------------------------------------------------
+- components coordinate
+- workflow orchestration
+- chat room
+- dialog controls
+- service coordinator
+- air traffic control
+- saga orchestrator
+
+---------------------------------------------------------
+USE OBSERVER WHEN:
+---------------------------------------------------------
+- event listeners
+- pub-sub
+- stock alerts
+- UI updates
+- cache invalidation
+- metrics listeners
+- order status notifications
+
+=========================================================
+9) EXAMPLE COMPARISON
+=========================================================
+
+---------------------------------------------------------
+CHAT APP
+---------------------------------------------------------
+
+Mediator:
+Users chatting with each other through chat room
+
+Observer:
+User subscribes to "online/offline status change" events
+
+---------------------------------------------------------
+E-COMMERCE
+---------------------------------------------------------
+
+Mediator:
+Checkout workflow:
+cart -> payment -> inventory -> shipping
+
+Observer:
+Order placed event:
+- email service
+- analytics
+- loyalty points
+- warehouse notification
+
+=========================================================
+10) CODE LEVEL DIFFERENCE
+=========================================================
+
+---------------------------------------------------------
+MEDIATOR
+---------------------------------------------------------
+class User {
+    IMediator* mediator;
+};
+
+user.send()
+-> mediator.send()
+
+---------------------------------------------------------
+OBSERVER
+---------------------------------------------------------
+class Subject {
+    vector<Observer*> observers;
+};
+
+subject.notifyAll()
+
+=========================================================
+11) INTERVIEW GOLD DIFFERENCE
+=========================================================
+
+MEDIATOR:
+"communication complexity reduce"
+
+OBSERVER:
+"event notification distribute"
+
+Best one-liner:
+Mediator manages conversations.
+Observer broadcasts events.
+
+=========================================================
+12) COMMON CONFUSION
+=========================================================
+
+Question:
+"Dono me central object hota hai?"
+
+Answer:
+Yes, but purpose alag hai.
+
+Mediator:
+Decision making + routing + coordination
+
+Observer:
+Event registration + notification fanout
+
+=========================================================
+13) ADVANTAGES COMPARISON
+=========================================================
+
+MEDIATOR:
++ central rules
++ less coupling among peers
++ easy orchestration
+
+OBSERVER:
++ dynamic subscribers
++ event driven
++ highly extensible
++ reactive systems
+
+=========================================================
+14) FAANG INTERVIEW ANSWER TEMPLATE
+=========================================================
+
+"Mediator is used to centralize interaction among multiple
+peer objects and reduce many-to-many dependencies.
+
+Observer is used for one-to-many event notification where
+state changes in one object automatically notify all
+registered listeners."
+
+=========================================================
+15) GOLDEN TAKEAWAY
+=========================================================
+
+Mediator = peer coordination
+Observer = event subscription
+
+If problem says:
+'components talk to each other'
+→ MEDIATOR
+
+If says:
+'state changed notify listeners'
+→ OBSERVER
+
+=========================================================

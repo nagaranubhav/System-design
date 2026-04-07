@@ -1,0 +1,238 @@
+=========================================================
+              PROTOTYPE DESIGN PATTERN
+=========================================================
+
+CATEGORY:
+Creational Design Pattern
+
+INTENT (MOST IMPORTANT):
+"Create new objects by copying an existing prototype
+instead of constructing from scratch."
+
+Simple one-line:
+"Heavy object ko baar-baar new banane ke bajaye clone karo."
+
+Golden line:
+Copy existing configured object → tweak → use
+
+---------------------------------------------------------
+1) CORE INTUITION
+---------------------------------------------------------
+
+Soch game me Alien NPC banana expensive hai:
+
+Constructor work:
+- DB se template load
+- textures load
+- stats calculate
+- AI tree initialize
+- inventory attach
+- weapon setup
+
+Agar 100 aliens chahiye:
+100 baar constructor chalana expensive ❌
+
+Better:
+1 heavy template banao
+baaki sab clone kar lo ✅
+
+This is Prototype.
+
+---------------------------------------------------------
+2) PROBLEM IT SOLVES
+---------------------------------------------------------
+
+Without prototype:
+Repeated heavy object creation
+
+Problems:
+1. expensive constructors
+2. duplicate setup logic
+3. repeated DB/API calls
+4. config recreation
+5. object graph creation cost
+
+Prototype solves:
+"reuse initialized object state"
+
+---------------------------------------------------------
+3) WHEN TO USE
+---------------------------------------------------------
+
+Use when:
+1. object creation expensive ho
+2. similar objects baar-baar chahiye
+3. partially configured copies chahiye
+4. object graph clone karna ho
+5. template based instances chahiye
+
+Golden trigger:
+"template object se multiple variants"
+
+---------------------------------------------------------
+4) UML DIAGRAM
+---------------------------------------------------------
+
+                 +----------------------+
+                 |      Cloneable       |
+                 +----------------------+
+                 | +clone()             |
+                 +----------------------+
+                           ^
+                           |
+                    +--------------+
+                    |     NPC      |
+                    +--------------+
+                    | name         |
+                    | health       |
+                    | attack       |
+                    | defense      |
+                    +--------------+
+                    | +clone()     |
+                    +--------------+
+
+Client:
+Template -> clone -> modify -> use
+
+---------------------------------------------------------
+5) PARTICIPANTS
+---------------------------------------------------------
+
+1) Prototype Interface
+clone() contract define karta
+
+2) Concrete Prototype
+Actual clone logic
+NPC
+
+3) Client
+Existing object clone karta
+
+---------------------------------------------------------
+6) WHY WE NEED IT
+---------------------------------------------------------
+
+Need because:
+- constructor costly
+- setup repeated
+- object graph large
+- templates reusable
+- variants quickly chahiye
+
+Most important:
+"construction cost ko copy cost me convert karna"
+
+---------------------------------------------------------
+7) REAL LIFE EXAMPLES
+---------------------------------------------------------
+
+1. Game NPC templates
+2. Resume template cloning
+3. Document duplicate
+4. Slide duplicate in PPT
+5. Workflow draft copy
+6. Form template reuse
+7. VM snapshot clone
+8. Kubernetes pod template
+
+---------------------------------------------------------
+8) PROTOTYPE vs STRATEGY (VERY IMPORTANT 🔥)
+---------------------------------------------------------
+
+Prototype aur Strategy completely different intents.
+
+---------------------------------------------------------
+PROTOTYPE:
+---------------------------------------------------------
+Intent:
+Object creation by cloning
+
+Focus:
+Creation optimization
+
+Problem:
+Heavy object creation
+
+Example:
+NPC clone
+Document duplicate
+
+---------------------------------------------------------
+STRATEGY:
+---------------------------------------------------------
+Intent:
+Swap algorithm/behavior
+
+Focus:
+Behavior variation
+
+Problem:
+Different algorithms
+
+Example:
+Sort strategy
+Payment method
+
+---------------------------------------------------------
+KEY DIFFERENCE:
+---------------------------------------------------------
+
+Prototype:
+"new object kaise banega"
+
+Strategy:
+"behavior kaise chalega"
+
+---------------------------------------------------------
+9) SHALLOW vs DEEP COPY (INTERVIEW GOLD)
+---------------------------------------------------------
+
+VERY IMPORTANT 🚀
+
+Shallow Copy:
+Pointers/references copied only
+
+Deep Copy:
+Nested objects bhi clone hote
+
+Example:
+NPC has Weapon*
+Then weapon bhi clone karna hoga
+
+Interviewers love this follow-up.
+
+---------------------------------------------------------
+10) ADVANTAGES
+---------------------------------------------------------
+
+1. Fast object creation
+2. Reuse expensive setup
+3. Cleaner creation logic
+4. Runtime cloning
+5. Template-based variants
+6. Avoid constructor complexity
+
+---------------------------------------------------------
+11) DISADVANTAGES
+---------------------------------------------------------
+
+1. Deep copy tricky
+2. cyclic refs hard
+3. clone bugs possible
+4. hidden copy cost
+
+---------------------------------------------------------
+12) INTERVIEW ANSWER TEMPLATE
+---------------------------------------------------------
+
+"Prototype pattern creates new objects by cloning existing
+fully or partially configured instances, making object
+creation faster and avoiding expensive reconstruction."
+
+---------------------------------------------------------
+13) GOLDEN TAKEAWAY
+---------------------------------------------------------
+
+Prototype = expensive construction ko cheap cloning me convert karo
+
+=========================================================
