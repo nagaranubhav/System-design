@@ -1,0 +1,252 @@
+=========================================================
+               MEDIATOR DESIGN PATTERN
+=========================================================
+
+CATEGORY:
+Behavioral Design Pattern
+
+INTENT (MOST IMPORTANT):
+"Define an object that encapsulates how a set of objects
+interact, promoting loose coupling by preventing objects
+from referring to each other explicitly."
+
+Simple one-line:
+"Objects aapas me directly baat nahi karte,
+sab mediator ke through baat karte hain."
+
+Golden line:
+Centralized communication controller
+
+---------------------------------------------------------
+1) CORE INTUITION
+---------------------------------------------------------
+
+Real life soch:
+
+Office me 20 employees hain.
+Agar sab directly ek dusre se baat karenge:
+N * (N-1) connections 😵
+
+Complexity blast:
+- tight coupling
+- dependency mess
+- hard debugging
+
+Instead:
+Slack / Teams group
+sab messages ek central chat room se pass hote hain
+
+That central hub = MEDIATOR
+
+---------------------------------------------------------
+2) PROBLEM IT SOLVES
+---------------------------------------------------------
+
+Without mediator:
+Every object knows every other object.
+
+Problems:
+1. Tight coupling
+2. Too many dependencies
+3. Hard to scale
+4. Hard to change communication rules
+5. Reuse difficult
+6. Complex graph of references
+
+Mediator solves:
+"many-to-many interaction complexity"
+
+---------------------------------------------------------
+3) WHEN TO USE
+---------------------------------------------------------
+
+Use when:
+1. multiple objects communicate frequently
+2. interaction rules centralized chahiye
+3. direct references avoid karne ho
+4. orchestration layer chahiye
+5. communication logic complex ho
+
+Golden trigger:
+"Many objects interacting with each other"
+
+---------------------------------------------------------
+4) UML DIAGRAM
+---------------------------------------------------------
+
+                 +----------------------+
+                 |      IMediator       |
+                 +----------------------+
+                 | +register()          |
+                 | +send()              |
+                 | +sendPrivate()       |
+                 +----------------------+
+                           ^
+                           |
+                  +------------------+
+                  |  ChatMediator    |
+                  +------------------+
+                  | colleagues[]     |
+                  | mutes[]          |
+                  +------------------+
+
+                           ^
+                           |
+                     uses / delegates
+                           |
+        ------------------------------------------------
+        |                      |                      |
+        |                      |                      |
+ +--------------+      +--------------+      +--------------+
+ |    User1     |      |    User2     |      |    User3     |
+ +--------------+      +--------------+      +--------------+
+ | send()       |      | receive()    |      | sendPrivate()|
+ +--------------+      +--------------+      +--------------+
+
+---------------------------------------------------------
+5) PARTICIPANTS
+---------------------------------------------------------
+
+1) Mediator Interface
+Common communication contract
+
+2) Concrete Mediator
+Actual routing logic
+ChatMediator
+
+3) Colleague
+Participants/users/components
+
+4) Concrete Colleague
+Actual sender/receiver
+User
+
+---------------------------------------------------------
+6) WHY WE NEED IT
+---------------------------------------------------------
+
+Need because:
+- object network too complex
+- communication rules changing
+- centralized control chahiye
+- moderation/filtering needed
+- workflow orchestration needed
+
+Most important:
+"Loose coupling through centralized interaction"
+
+---------------------------------------------------------
+7) REAL LIFE EXAMPLES
+---------------------------------------------------------
+
+1. Chat room
+2. Air traffic control tower
+3. UI dialog box interactions
+4. Booking workflow coordinator
+5. Event bus
+6. Kafka consumer coordinator
+7. Notification orchestration
+8. Smart home hub
+9. Microservice saga orchestrator
+
+---------------------------------------------------------
+8) MEDIATOR vs STRATEGY (VERY IMPORTANT 🔥)
+---------------------------------------------------------
+
+Mediator aur Strategy dono composition use karte hain
+BUT intent completely different hai.
+
+---------------------------------------------------------
+MEDIATOR:
+---------------------------------------------------------
+Intent:
+Coordinate communication among multiple objects
+
+Focus:
+Object interactions
+
+Problem:
+Many-to-many communication chaos
+
+Example:
+Chat room, ATC tower
+
+---------------------------------------------------------
+STRATEGY:
+---------------------------------------------------------
+Intent:
+Swap algorithm/behavior
+
+Focus:
+Single task ke multiple implementations
+
+Problem:
+Different algorithms
+
+Example:
+Payment method
+Sort algorithm
+
+---------------------------------------------------------
+KEY DIFFERENCE:
+---------------------------------------------------------
+
+Mediator:
+"objects ka interaction manage"
+
+Strategy:
+"algorithm choose"
+
+---------------------------------------------------------
+9) HOW TO IDENTIFY IN INTERVIEW
+---------------------------------------------------------
+
+If interviewer says:
+- multiple components coordination
+- chat room
+- UI widgets dependent
+- service orchestration
+- event routing
+- workflow controller
+
+→ Think MEDIATOR
+
+---------------------------------------------------------
+10) ADVANTAGES
+---------------------------------------------------------
+
+1. Loose coupling
+2. Centralized communication logic
+3. Easy rule changes
+4. Better orchestration
+5. Reusable colleagues
+6. Easier testing
+7. Better extensibility
+
+---------------------------------------------------------
+11) DISADVANTAGES
+---------------------------------------------------------
+
+1. Mediator god object ban sakta
+2. Single point of complexity
+3. Large mediator hard to maintain
+
+---------------------------------------------------------
+12) INTERVIEW ANSWER TEMPLATE
+---------------------------------------------------------
+
+"Mediator pattern centralizes communication among multiple
+objects by introducing a mediator object that controls
+interaction rules, reducing direct dependencies and
+improving maintainability."
+
+---------------------------------------------------------
+13) GOLDEN TAKEAWAY
+---------------------------------------------------------
+
+Mediator = Central communication hub
+
+Objects know mediator
+Objects don't know each other
+
+=========================================================
