@@ -1,0 +1,795 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                 HLD MASTER NOTES: REPLICATION + QUORUMS                    ║
+║                  FAANG INTERVIEW LEVEL | SUPER DETAILED                    ║
+║          Style: Intuition → Why → Tradeoff → Real Systems → HLD           ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+==============================================================================
+0) BIG PICTURE FIRST — WHY REPLICATION EVEN EXISTS?
+==============================================================================
+
+Before jumping into Single Leader / Multi Leader / Leaderless, interviewer ko
+sabse pehle ye dikhna chahiye ki tum "WHY" samajhte ho.
+
+Replication = same data ko multiple machines / nodes / data centers / regions
+me copy karke rakhna.
+
+Simple real life analogy:
+Imagine tumhare paas ek important notebook hai.
+
+Case 1:
+Notebook sirf ek jagah rakhi.
+→ Agar vo kho gayi = data lost.
+
+Case 2:
+Notebook ki 3 copies bana di.
+→ Ek ghar pe
+→ Ek office me
+→ Ek friend ke paas
+
+Ab:
+- ek copy destroy ho jaye → still safe
+- multiple log padh sake → faster reads
+- dusre city me log quickly access kare → lower latency
+
+THIS IS EXACTLY REPLICATION.
+
+------------------------------------------------------------------------------
+CORE GOALS OF REPLICATION
+------------------------------------------------------------------------------
+
+1) Durability
+2) Throughput / Scalability
+3) Geography / Low Latency / DR
+4) Availability / Fault Tolerance
+5) Analytics isolation
+6) Backup & recovery safety
+
+Interview line:
+"We replicate data primarily for durability, availability, read scalability,
+geo-latency reduction, and disaster recovery."
+
+==============================================================================
+1) DURABILITY — WHY?
+==============================================================================
+
+Durability = once write acknowledged, data should survive crashes.
+
+Real life example:
+Payment completed.
+User ka ₹10,000 transfer ho gaya.
+App bolta hai "success".
+
+Agar server crash ke baad record gayab ho gaya:
+→ catastrophic failure
+→ money inconsistency
+→ trust loss
+
+So we replicate.
+
+------------------------------------------------------------------------------
+WITHOUT REPLICATION
+------------------------------------------------------------------------------
+
+User → Server A writes order
+Server A disk corrupts
+Data gone forever
+
+Single machine durability weak hoti hai because:
+- disk failure
+- machine crash
+- accidental deletion
+- power issue
+- cloud zone failure
+
+------------------------------------------------------------------------------
+WITH REPLICATION
+------------------------------------------------------------------------------
+
+Write copied to:
+- Node A
+- Node B
+- Node C
+
+Even if A dies, B/C still preserve data.
+
+Real systems:
+- banking ledgers
+- orders
+- inventory
+- user profiles
+- chat messages
+- social posts
+
+Tradeoff:
+Higher durability usually means:
+- more network hops
+- more write latency
+- more storage cost
+
+==============================================================================
+2) THROUGHPUT — WHY REPLICATION IMPROVES SCALE
+==============================================================================
+
+Example:
+Instagram-like app
+- 10M users
+- reads huge
+- writes moderate
+
+Single DB:
+100K QPS max
+
+Traffic:
+500K read QPS
+
+Single DB dead.
+
+So replicas add karo.
+
+1 primary + 5 read replicas
+Now reads distribute:
+500K / 5 = 100K each
+
+Beautiful scale.
+
+Interview point:
+Replication especially boosts READ throughput.
+
+Important:
+Writes scale only in some replication models.
+This is where Single Leader vs Multi Leader vs Leaderless matters.
+
+==============================================================================
+3) GEOGRAPHY / MULTI REGION
+==============================================================================
+
+User in India, US, Europe.
+
+If all data only US me:
+India user ko 250ms lag sakta hai.
+
+If India replica:
+local read latency maybe 20ms.
+
+Real systems:
+- Netflix user profiles
+- YouTube metadata
+- CDN configs
+- Twitter timelines
+- product catalog
+
+Also DR:
+US region down?
+Serve from Europe.
+
+Tradeoff:
+Cross-region consistency harder.
+
+==============================================================================
+4) SINGLE LEADER REPLICATION
+==============================================================================
+
+This is the MOST COMMON interview default.
+
+Other names:
+- Primary Replica
+- Master Slave
+- Leader Follower
+
+------------------------------------------------------------------------------
+ARCHITECTURE
+------------------------------------------------------------------------------
+
+                 Writes
+Client ───────────────► Leader
+                         │
+                         ├──── replicate log ───► Follower 1
+                         ├──── replicate log ───► Follower 2
+                         └──── replicate log ───► Follower 3
+
+Reads:
+- from leader
+- or followers
+
+------------------------------------------------------------------------------
+INTUITION
+------------------------------------------------------------------------------
+
+Ek class monitor hai.
+Attendance register me sirf monitor likh sakta hai.
+Baaki students us copy ko dekh sakte hain.
+
+Only one source of truth for writes.
+
+------------------------------------------------------------------------------
+WRITE FLOW
+------------------------------------------------------------------------------
+
+1) client sends write to leader
+2) leader validates
+3) writes WAL / binlog / commit log
+4) applies locally
+5) ships log to followers
+6) followers replay same ordered writes
+7) ack returned
+
+------------------------------------------------------------------------------
+WHY SINGLE LEADER IS BEAUTIFUL
+------------------------------------------------------------------------------
+
+Because ordering easy ho jati hai.
+
+If writes:
+A = 5
+A = 10
+A = 20
+
+Leader ensures exact order preserved.
+
+This dramatically simplifies:
+- conflict resolution
+- transactions
+- constraints
+- secondary indexes
+- CDC
+- cache invalidation
+
+------------------------------------------------------------------------------
+PROS
+------------------------------------------------------------------------------
+
+1) Stronger consistency easier
+Best for:
+- payments
+- orders
+- booking
+- inventory
+
+2) Conflict free writes
+Only one writer.
+
+3) Easy debugging
+All writes one path.
+
+4) Transaction support easy
+SQL databases mostly use this.
+
+5) Easy replication log
+binlog/WAL based.
+
+------------------------------------------------------------------------------
+CONS
+------------------------------------------------------------------------------
+
+1) Write bottleneck
+All writes leader pe.
+
+2) Leader SPOF (without failover)
+If leader dies → no writes
+
+3) Failover complexity
+Election + promotion required
+
+4) Cross-region write latency
+Global writes one leader tak jayengi
+
+5) Replica lag
+Followers stale ho sakte hain
+
+------------------------------------------------------------------------------
+REAL EXAMPLES
+------------------------------------------------------------------------------
+
+- PostgreSQL streaming replication
+- MySQL replicas
+- MongoDB primary-secondary
+- Redis replica mode
+- Kafka partition leader-follower
+
+------------------------------------------------------------------------------
+WHEN TO USE
+------------------------------------------------------------------------------
+
+Default HLD choice when:
+- strong consistency important
+- moderate write scale
+- read heavy system
+- transactional workload
+
+Example:
+Food delivery order system
+
+Why?
+Order duplication nahi chahiye.
+
+==============================================================================
+5) MULTI LEADER REPLICATION
+==============================================================================
+
+Here multiple nodes accept writes.
+
+------------------------------------------------------------------------------
+ARCHITECTURE
+------------------------------------------------------------------------------
+
+Region India  ◄────sync────► Region US ◄────sync────► Region Europe
+   Leader A                      Leader B                 Leader C
+
+Each region local writes accept karta hai.
+
+------------------------------------------------------------------------------
+INTUITION
+------------------------------------------------------------------------------
+
+Google Docs analogy:
+Multiple people edit from different locations.
+Each local server accepts edits.
+Then changes sync hote hain.
+
+------------------------------------------------------------------------------
+WHY MULTI LEADER?
+------------------------------------------------------------------------------
+
+Single leader global latency problem solve.
+
+India user:
+write India leader
+No need US round trip.
+
+------------------------------------------------------------------------------
+REAL USE CASES
+------------------------------------------------------------------------------
+
+1) Multi-region apps
+2) collaborative editing
+3) offline-first apps
+4) branch office systems
+5) shopping cart sync
+6) messaging draft sync
+
+------------------------------------------------------------------------------
+PROS
+------------------------------------------------------------------------------
+
+1) Low write latency globally
+Local region writes.
+
+2) Better availability
+One region down, others still writable.
+
+3) Regional autonomy
+Each region independent.
+
+4) Good for async workflows
+
+------------------------------------------------------------------------------
+BIGGEST PROBLEM = CONFLICTS
+------------------------------------------------------------------------------
+
+India leader:
+name = "Anubhav"
+
+US leader same time:
+name = "Anu"
+
+Now sync?
+Conflict.
+
+This is the CORE tradeoff.
+
+------------------------------------------------------------------------------
+CONFLICT RESOLUTION STRATEGIES
+------------------------------------------------------------------------------
+
+1) Last Write Wins
+Simple but dangerous.
+
+2) Version vectors
+Detect concurrent updates.
+
+3) CRDTs
+For counters, sets, collaborative docs.
+
+4) App specific merge
+Cart items union.
+Profile fields merge by timestamp.
+
+------------------------------------------------------------------------------
+CONS
+------------------------------------------------------------------------------
+
+1) Conflict complexity huge
+Most important interview point.
+
+2) Debugging hard
+Race across regions.
+
+3) Causality issues
+Ordering across leaders complex.
+
+4) Transaction guarantees weaker
+Especially global txns.
+
+5) Higher operational complexity
+
+------------------------------------------------------------------------------
+WHEN TO USE
+------------------------------------------------------------------------------
+
+Use when:
+- global writes
+- low latency writes needed
+- conflict acceptable / resolvable
+
+Examples:
+- Google Docs
+- Notion collaborative docs
+- shopping cart sync
+- social draft edits
+
+==============================================================================
+6) LEADERLESS REPLICATION
+==============================================================================
+
+This is Dynamo/Cassandra style.
+
+No leader.
+Any node can accept write.
+
+------------------------------------------------------------------------------
+ARCHITECTURE
+------------------------------------------------------------------------------
+
+          ┌──────── Node A
+Client ───┼──────── Node B
+          └──────── Node C
+
+Write multiple replicas directly.
+
+------------------------------------------------------------------------------
+INTUITION
+------------------------------------------------------------------------------
+
+Imagine 3 teachers maintain same attendance sheet.
+You can submit update to any 2.
+Later they reconcile.
+
+------------------------------------------------------------------------------
+WRITE FLOW
+------------------------------------------------------------------------------
+
+Replication factor N = 3
+
+Write to:
+A, B, C
+
+Success condition:
+W = 2 acknowledgements enough
+
+Even if C down:
+A + B success => write accepted
+
+------------------------------------------------------------------------------
+READ FLOW
+------------------------------------------------------------------------------
+
+Read from R replicas.
+
+Suppose:
+A = value 10
+B = value 10
+C = value 8 (stale)
+
+Read R=2:
+choose latest by timestamp/version
+
+------------------------------------------------------------------------------
+PROS
+------------------------------------------------------------------------------
+
+1) No leader bottleneck
+Great write scale.
+
+2) No leader failover pain
+
+3) High availability
+Some nodes down still works.
+
+4) Great for partition tolerance
+Excellent distributed systems design.
+
+5) Multi region friendly
+
+------------------------------------------------------------------------------
+CONS
+------------------------------------------------------------------------------
+
+1) Conflict resolution needed
+Concurrent writes common.
+
+2) Read repair complexity
+
+3) Anti entropy required
+Merkle trees / background sync
+
+4) Stale reads possible
+
+5) Harder mental model
+
+------------------------------------------------------------------------------
+REAL SYSTEMS
+------------------------------------------------------------------------------
+
+- DynamoDB core ideas
+- Cassandra
+- Riak
+- Voldemort (old)
+- ScyllaDB style concepts
+
+------------------------------------------------------------------------------
+WHEN TO USE
+------------------------------------------------------------------------------
+
+Excellent for:
+- huge scale writes
+- logs
+- feeds
+- counters
+- IoT telemetry
+- event ingestion
+- social likes/views
+
+Not ideal for:
+- strict banking ledger
+
+==============================================================================
+7) QUORUMS — THE HEART OF LEADERLESS
+==============================================================================
+
+This is interviewer’s favorite.
+
+------------------------------------------------------------------------------
+DEFINITIONS
+------------------------------------------------------------------------------
+
+N = total replicas
+W = write acknowledgements required
+R = read replicas consulted
+
+Condition:
+R + W > N
+
+Then read/write overlap guaranteed.
+
+------------------------------------------------------------------------------
+CLASSIC EXAMPLE
+------------------------------------------------------------------------------
+
+N = 3
+W = 2
+R = 2
+
+Since:
+2 + 2 > 3
+
+At least one common node overlap karega.
+
+That common node likely latest write rakhega.
+
+------------------------------------------------------------------------------
+WHY THIS WORKS
+------------------------------------------------------------------------------
+
+Write goes to A,B
+Read goes to B,C
+
+Overlap = B
+
+So latest value visible.
+
+------------------------------------------------------------------------------
+POPULAR CONFIGURATIONS
+------------------------------------------------------------------------------
+
+1) Fast writes
+N=3 W=1 R=3
+Pros: write fast
+Cons: stale risk
+
+2) Balanced
+N=3 W=2 R=2
+Most common
+
+3) Stronger reads
+N=5 W=3 R=3
+
+------------------------------------------------------------------------------
+REAL LIFE TRADEOFF
+------------------------------------------------------------------------------
+
+Higher W:
+- better durability
+- better consistency
+- slower writes
+
+Higher R:
+- fresher reads
+- slower reads
+- higher network cost
+
+------------------------------------------------------------------------------
+SLIPPERY EDGE CASES
+------------------------------------------------------------------------------
+
+Even quorum != absolute strong consistency always.
+
+Because:
+1) sloppy quorum
+2) hinted handoff
+3) clock skew
+4) concurrent writes
+5) network partition
+6) read from non-overlapping replica sets
+7) async repair
+
+This is very strong interview point.
+
+Say:
+"Quorums improve probabilistic consistency, but practical systems may still
+show stale or conflicting reads due to clock skew, sloppy quorums, or
+concurrent writes."
+
+==============================================================================
+8) HOW TO CHOOSE IN HLD INTERVIEW
+==============================================================================
+
+------------------------------------------------------------------------------
+CASE A: PAYMENT SYSTEM
+------------------------------------------------------------------------------
+Choose:
+Single leader
+
+Why:
+- strong ordering
+- transactions
+- no conflicts
+
+------------------------------------------------------------------------------
+CASE B: GLOBAL DOC EDITOR
+------------------------------------------------------------------------------
+Choose:
+Multi leader + CRDT
+
+Why:
+- local low latency writes
+- conflict merge required
+
+------------------------------------------------------------------------------
+CASE C: LIKE COUNTER / VIEW COUNT
+------------------------------------------------------------------------------
+Choose:
+Leaderless
+
+Why:
+- massive write scale
+- eventual consistency acceptable
+
+------------------------------------------------------------------------------
+CASE D: PRODUCT CATALOG
+------------------------------------------------------------------------------
+Choose:
+Single leader write + many read replicas
+
+Why:
+- reads huge
+- writes manageable
+
+==============================================================================
+9) INTERVIEW GOLDEN ANSWER TEMPLATE
+==============================================================================
+
+If interviewer asks:
+"How would you choose replication strategy?"
+
+Perfect structure:
+
+1) workload
+   - read heavy?
+   - write heavy?
+   - geo distributed?
+   - strict consistency?
+
+2) latency goals
+   - local reads?
+   - local writes?
+
+3) conflict tolerance
+   - can app merge?
+   - strict ordering needed?
+
+4) failure model
+   - region failure?
+   - node failure?
+   - partition?
+
+5) tradeoff
+   - consistency vs availability vs latency
+
+==============================================================================
+10) SUPER FAST REVISION
+==============================================================================
+
+Single Leader
+- easiest
+- strongest ordering
+- write bottleneck
+- default interview answer
+
+Multi Leader
+- global writes
+- local latency
+- conflict heavy
+- collaborative systems
+
+Leaderless
+- extreme scale
+- quorum based
+- highly available
+- eventual consistency
+
+==============================================================================
+11) FAANG LEVEL DEEP TRADEOFF LINE
+==============================================================================
+
+Golden line to speak:
+
+"Replication strategy is fundamentally a tradeoff between write latency,
+consistency guarantees, conflict complexity, and failure recovery. For strict
+transactional systems I prefer single leader, for geo-local writable systems
+multi-leader, and for hyperscale eventually consistent workloads leaderless
+with quorum tuning."
+
+==============================================================================
+12) WHAT TO SAY IF INTERVIEWER PUSHES HARDER
+==============================================================================
+
+If they ask follow-up:
+"What happens during region partition?"
+
+Say:
+
+Single leader:
+- if leader isolated → failover needed
+
+Multi leader:
+- both regions writable
+- conflict reconciliation later
+
+Leaderless:
+- availability maintained depending on W quorum
+- may accept divergent writes
+- read repair later
+
+==============================================================================
+END RESULT
+==============================================================================
+
+Agar tum ye notes confidently explain kar do with examples:
+- payment
+- google docs
+- like counter
+- global catalog
+
+toh almost kisi bhi HLD interview me replication related discussion tum
+bahut strongly nikal loge.
+
+NEXT BEST TOPIC TO STUDY:
+- replication lag
+- failover
+- leader election
+- split brain
+- read-after-write consistency
+- monotonic reads
+- quorum edge cases
+- anti entropy + hinted handoff

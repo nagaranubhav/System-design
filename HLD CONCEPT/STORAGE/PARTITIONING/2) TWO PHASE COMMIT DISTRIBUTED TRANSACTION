@@ -1,0 +1,693 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║            TWO PHASE COMMIT (2PC) — DISTRIBUTED TRANSACTIONS               ║
+║         SUPER DETAILED FAANG-LEVEL HLD + DISTRIBUTED SYSTEM NOTES          ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+==============================================================================
+0) INTUITION FIRST — WHAT PROBLEM ARE WE EVEN SOLVING?
+==============================================================================
+
+WHY THIS CONCEPT EXISTS
+In distributed systems, one business action often touches multiple services/databases.
+
+Example:
+- Amazon order placement
+- Payment service deducts money
+- Inventory service reserves stock
+- Order service creates order row
+- Notification service sends confirmation
+
+Now imagine:
+- Payment succeeds
+- Inventory update fails
+
+Without a distributed transaction:
+- user loses money
+- no order created
+- stock inconsistent
+- support nightmare
+
+This is exactly WHY 2PC exists:
+It guarantees ATOMICITY across multiple distributed nodes.
+
+Atomicity = ALL succeed OR ALL rollback.
+
+This is the distributed version of ACID transaction atomicity.
+
+REAL LIFE ANALOGY
+Think of buying a movie ticket:
+- Bank says “money reserved”
+- Theater says “seat reserved”
+- Only when both confirm → final booking
+- If any side says no → both undo
+
+This “first ask everyone if they are ready, then finalize” is 2PC.
+
+CORE IDEA
+2PC splits commit into 2 phases:
+1) Prepare / Voting phase
+2) Commit / Decision phase
+
+This prevents partial commit across multiple machines.
+
+Golden line:
+2PC gives atomic commit across distributed participants.
+
+==============================================================================
+1) WHY NORMAL LOCAL TRANSACTION IS NOT ENOUGH
+==============================================================================
+
+WHY THIS EXISTS
+A single DB transaction works only inside one database engine.
+
+But modern systems are:
+- microservices
+- multiple databases
+- geo-distributed
+- polyglot persistence
+- separate ownership boundaries
+
+Examples:
+- Uber trip completion:
+  - trip DB
+  - payment DB
+  - driver payout ledger
+- WhatsApp premium business payment:
+  - wallet DB
+  - invoice DB
+  - analytics DB
+- Netflix billing:
+  - subscription DB
+  - payment processor
+  - invoice storage
+
+A local DB transaction cannot span all these safely.
+
+Hence:
+Distributed transaction protocol needed → 2PC.
+
+==============================================================================
+2) CORE 2PC FLOW — THE BIG PICTURE
+==============================================================================
+
+PARTICIPANTS
+1) Coordinator / Transaction Manager
+   - drives protocol
+   - collects votes
+   - makes final decision
+
+2) Participants / Resource Managers
+   - actual databases/services
+   - execute local transaction
+   - vote yes/no
+
+WHY THIS ARCHITECTURE
+We need one authority to avoid inconsistent decisions.
+
+Problem solved:
+- prevents some nodes committing while others abort
+
+Tradeoff:
+- coordinator becomes SPOF risk
+- blocking protocol
+
+When NOT ideal:
+- internet-scale microservices
+- long-running workflows
+- user-facing low latency paths
+- highly partitioned systems
+
+==============================================================================
+3) PHASE 1 — PREPARE / VOTING PHASE
+==============================================================================
+
+WHY THIS PHASE EXISTS
+Before committing globally, every participant must promise:
+“I can commit this safely later.”
+
+This avoids partial success.
+
+FLOW
+Step 1:
+Coordinator sends PREPARE to all participants.
+
+Step 2:
+Each participant:
+- executes transaction locally
+- writes undo/redo log
+- locks required rows/resources
+- ensures durability on disk
+- replies:
+  - YES (ready)
+  - NO (cannot commit)
+
+WHY FORCE LOGGING HERE
+Crash recovery.
+
+If participant crashes after voting YES,
+it must remember:
+“I promised commit.”
+
+This is critical for recovery.
+
+REAL EXAMPLE — PAYMENT + INVENTORY
+User buys iPhone on Amazon:
+- payment DB reserves ₹80,000
+- inventory DB reserves 1 item
+- order DB prepares row insertion
+
+Each says YES only after durable local prepare.
+
+Latency tradeoff:
+prepare requires fsync → disk I/O expensive.
+
+==============================================================================
+4) PHASE 2 — COMMIT / ABORT PHASE
+==============================================================================
+
+WHY THIS PHASE EXISTS
+Once everyone says YES, system can safely make one final decision.
+
+FLOW
+If ALL YES:
+- coordinator logs COMMIT
+- sends COMMIT to all
+
+If ANY NO:
+- coordinator logs ABORT
+- sends ROLLBACK to all
+
+Participants then:
+- commit local tx
+OR
+- rollback local tx
+
+Atomicity guarantee:
+either everyone commits or everyone aborts.
+
+IMPORTANT INTERVIEW LINE
+Atomicity comes from:
+- unanimous voting
+- durable coordinator decision log
+- deterministic final action
+
+==============================================================================
+5) DETAILED ARCHITECTURE THINKING
+==============================================================================
+
+HIGH LEVEL COMPONENTS
+- API Gateway
+- Order Service
+- Transaction Coordinator
+- Payment DB
+- Inventory DB
+- Order DB
+- WAL / durable logs
+- Retry subsystem
+- Timeout detector
+- Monitoring + alerts
+
+REQUEST FLOW
+Client → Order Service
+      → Coordinator creates txn_id
+      → send prepare to payment/inventory/order
+      → collect votes
+      → persist decision
+      → broadcast final decision
+      → ack client
+
+WHY txn_id IMPORTANT
+Needed for:
+- idempotency
+- dedup
+- retries
+- recovery
+- debugging
+- tracing
+
+Production best practice:
+Globally unique transaction IDs.
+
+==============================================================================
+6) STEP-BY-STEP DEEP EXAMPLE — UBER RIDE COMPLETION
+==============================================================================
+
+Use case:
+Ride ends.
+
+Needs:
+- deduct rider payment
+- add driver earnings
+- mark trip completed
+
+PHASE 1
+Coordinator asks:
+- wallet service prepare?
+- payout service prepare?
+- trip DB prepare?
+
+All lock rows and respond YES.
+
+PHASE 2
+Coordinator sends COMMIT.
+
+Now:
+- rider charged
+- driver credited
+- trip marked completed
+
+WHY 2PC HERE
+Financial correctness > latency.
+
+Tradeoff:
+slower trip close path.
+
+When NOT to use:
+driver location updates (too frequent, low latency critical).
+
+==============================================================================
+7) FAILURE CASES — MOST IMPORTANT INTERVIEW AREA
+==============================================================================
+
+--------------------------------------------------------------------------
+A) COORDINATOR GOES DOWN BEFORE DECISION
+--------------------------------------------------------------------------
+
+Scenario:
+- all participants voted YES
+- coordinator crashes before COMMIT/ABORT broadcast
+
+WHY THIS IS BAD
+Participants are BLOCKED.
+They cannot decide alone.
+
+They must hold:
+- locks
+- prepared state
+- resources
+
+This is the famous 2PC BLOCKING PROBLEM.
+
+Impact:
+- lock contention
+- throughput collapse
+- cascading latency spikes
+
+Example:
+Payment row remains locked
+→ future payments blocked
+
+Recovery strategy:
+- coordinator WAL recovery
+- leader failover using replicated log
+- consensus-backed coordinator metadata
+
+FAANG follow-up:
+How do you remove blocking?
+Answer:
+3PC, Paxos Commit, Saga, consensus log.
+
+--------------------------------------------------------------------------
+B) PARTICIPANT / RECEIVER GOES DOWN
+--------------------------------------------------------------------------
+
+CASE 1: before voting
+Coordinator timeout → ABORT.
+
+Safe.
+
+CASE 2: after YES before final decision
+Participant recovers from log:
+- sees PREPARED state
+- asks coordinator final decision
+- applies commit/abort
+
+WHY LOGGING SOLVES THIS
+Durability of intent.
+
+CASE 3: after COMMIT received but before ACK
+Coordinator retries COMMIT.
+Participant must be idempotent.
+
+Common production issue:
+duplicate commit messages.
+
+Solution:
+transaction IDs + idempotent commit handling.
+
+--------------------------------------------------------------------------
+C) NETWORK PARTITION
+--------------------------------------------------------------------------
+
+Coordinator cannot reach one node.
+
+Question:
+Wait or abort?
+
+Typical 2PC:
+timeout → ABORT.
+
+Tradeoff:
+sacrifices availability for consistency.
+
+CAP THEOREM VIEW
+During partition:
+2PC chooses C over A.
+
+Great interview line:
+2PC is consistency-first and can become unavailable during partitions.
+
+--------------------------------------------------------------------------
+D) REGION FAILURE
+--------------------------------------------------------------------------
+
+Suppose inventory region us-east crashes.
+
+Coordinator:
+- may timeout
+- abort transaction
+- retry later
+
+Real-world production issue:
+cross-region 2PC increases p99 latency badly.
+
+WHY
+WAN RTT + durable logging + retries.
+
+Netflix/Amazon style systems often avoid global 2PC in hot path.
+
+--------------------------------------------------------------------------
+E) SPLIT BRAIN / MULTIPLE COORDINATORS
+--------------------------------------------------------------------------
+
+Very dangerous.
+
+Two coordinators making conflicting decisions = disaster.
+
+Solution:
+leader election + quorum replicated coordinator state.
+
+Use:
+- Raft
+- Paxos
+- ZooKeeper
+- etcd
+
+WHY THIS CHOICE
+Prevents multiple authoritative decisions.
+
+Tradeoff:
+extra write latency for quorum replication.
+
+==============================================================================
+8) SCALING BOTTLENECKS — SENIOR ENGINEER THINKING
+==============================================================================
+
+--------------------------------------------------------------------------
+BOTTLENECK 1: LOCK HOLD TIME
+--------------------------------------------------------------------------
+Prepared transactions hold locks till phase 2.
+
+Causes:
+- contention
+- deadlocks
+- poor throughput
+
+High write systems suffer badly:
+- payments
+- inventory
+- wallet ledgers
+
+--------------------------------------------------------------------------
+BOTTLENECK 2: COORDINATOR HOTSPOT
+--------------------------------------------------------------------------
+Single coordinator handles:
+- state machine
+- retries
+- timeouts
+- logging
+
+Scaling solution:
+- partition by txn_id hash
+- multiple coordinators
+- leader per shard
+
+Tradeoff:
+cross-shard observability harder.
+
+--------------------------------------------------------------------------
+BOTTLENECK 3: CROSS-REGION LATENCY
+--------------------------------------------------------------------------
+2 RTT minimum + disk flush.
+
+Rough:
+- local region: manageable
+- multi-region: expensive
+
+Hence:
+Google Spanner uses consensus-backed commit instead of naive 2PC alone.
+
+--------------------------------------------------------------------------
+BOTTLENECK 4: LONG RUNNING TRANSACTIONS
+--------------------------------------------------------------------------
+Never use 2PC for:
+- hotel booking workflow
+- food delivery driver matching
+- 30 min payment timeout
+- async human approvals
+
+Use Saga instead.
+
+==============================================================================
+9) CONSISTENCY + REPLICATION + FAILOVER THINKING
+==============================================================================
+
+REPLICATION MODEL
+Coordinator log should be replicated.
+
+WHY
+Coordinator crash otherwise blocks system.
+
+Best practice:
+Raft replicated WAL.
+
+FAILOVER
+Standby coordinator reads replicated log and resumes:
+- commit retries
+- abort retries
+- participant reconciliation
+
+QUORUM ROLE
+If coordinator state is quorum replicated:
+- failover safe
+- no split-brain decisions
+
+CONSISTENCY GUARANTEE
+Strong atomic commit guarantee
+BUT only if coordinator durable state survives.
+
+Important nuance:
+2PC itself is atomic commit protocol,
+NOT full replication protocol.
+
+==============================================================================
+10) ALTERNATIVES + TRADEOFFS
+==============================================================================
+
+--------------------------------------------------------------------------
+A) SAGA PATTERN
+--------------------------------------------------------------------------
+WHY
+For microservices and long workflows.
+
+Instead of locks:
+- local commits
+- compensating rollback actions
+
+Example:
+Uber Eats order
+- payment
+- restaurant accept
+- driver assign
+- compensate if failed
+
+Tradeoff:
+eventual consistency
+harder compensation logic
+
+Use when:
+availability > strict atomicity
+
+--------------------------------------------------------------------------
+B) OUTBOX + EVENT DRIVEN
+--------------------------------------------------------------------------
+Use for:
+DB write + Kafka publish consistency.
+
+Better for:
+Instagram notifications
+WhatsApp message fanout
+analytics pipelines
+
+--------------------------------------------------------------------------
+C) CONSENSUS COMMIT
+--------------------------------------------------------------------------
+Used in:
+Google Spanner
+CockroachDB
+
+Why better:
+non-blocking under coordinator failover
+
+Tradeoff:
+higher complexity
+
+==============================================================================
+11) REAL WORLD COMPANY SYSTEMS
+==============================================================================
+
+AMAZON
+- payment + inventory + order
+- often avoid global 2PC in large microservices
+- use reservation + saga hybrid
+
+WHATSAPP
+- not for message fanout path
+- too latency sensitive
+- use async replication + retries
+
+INSTAGRAM
+- post write path often async fanout
+- no need strict 2PC
+
+PAYMENT LEDGERS
+- excellent 2PC candidate
+- money correctness critical
+
+GOOGLE SPANNER
+- 2PC over Paxos groups
+- globally consistent SQL
+
+Golden interview line:
+2PC is common in strongly consistent financial/ledger workflows, but less common in internet-scale latency-sensitive product paths.
+
+==============================================================================
+12) HOW TO COMMUNICATE IN INTERVIEW
+==============================================================================
+
+Best answer structure:
+
+1) Start with business invariant
+   “Money should never be deducted without order creation.”
+
+2) Explain why local tx fails
+   “Multiple databases/services involved.”
+
+3) Introduce 2PC
+   “Coordinator asks everyone to prepare first.”
+
+4) Mention durability
+   “Participants log prepared state before YES.”
+
+5) Mention failure caveat
+   “Classic blocking issue if coordinator crashes.”
+
+6) Mention alternative
+   “For long workflows I’d prefer Saga.”
+
+This communication structure sounds senior.
+
+==============================================================================
+13) COMMON MISTAKES CANDIDATES MAKE
+==============================================================================
+
+- saying 2PC is highly available
+- forgetting blocking problem
+- ignoring coordinator WAL
+- not discussing lock contention
+- using 2PC for long workflows
+- forgetting idempotent retries
+- ignoring network partition behavior
+- no CAP tradeoff discussion
+- no failover strategy
+- no mention of participant recovery
+
+==============================================================================
+14) EDGE CASES + PRODUCTION GOTCHAS
+==============================================================================
+
+- duplicate prepare requests
+- duplicate commit retries
+- participant commit ACK lost
+- stale coordinator retry after failover
+- transaction timeout after user disconnect
+- deadlock during prepare
+- prepared row lock causes hotspot
+- poison transaction repeatedly failing
+- region clock skew affecting timeouts
+- retry storm after partial outage
+
+Mitigations:
+- idempotency keys
+- exponential backoff
+- dedup table
+- circuit breakers
+- coordinator fencing tokens
+- bounded retry budget
+
+==============================================================================
+15) QUICK REVISION BULLETS
+==============================================================================
+
+- 2PC = atomic commit across distributed nodes
+- phase 1 = prepare/vote
+- phase 2 = commit/abort
+- coordinator decides
+- participant logs before YES
+- blocking if coordinator crashes after YES
+- consistency over availability during partition
+- expensive across regions
+- bad for long workflows
+- great for payment/ledger correctness
+- saga preferred for business workflows
+
+==============================================================================
+16) GOLDEN INTERVIEW LINES
+==============================================================================
+
+- “2PC solves distributed atomicity, not availability.”
+- “The biggest drawback is blocking due to coordinator failure.”
+- “Prepared state durability is what makes recovery possible.”
+- “In internet-scale microservices, Saga is often operationally superior.”
+- “For money movement, correctness usually justifies 2PC cost.”
+- “Cross-region 2PC must be evaluated against p99 latency budgets.”
+
+==============================================================================
+17) WHAT TO STUDY NEXT
+==============================================================================
+
+Best next topics after 2PC:
+
+1) Saga Pattern
+2) Paxos / Raft Commit
+3) Google Spanner architecture
+4) Percolator transaction model
+5) Distributed locks + fencing
+6) Idempotency and exactly-once myths
+7) Quorum based replication
+8) Transaction isolation in distributed DBs
+9) Write skew + serializability
+10) Outbox pattern + CDC
+
+FAANG FOLLOW-UP EXPECTATION
+After 2PC, most interviewers naturally ask:
+“If coordinator failure blocking is unacceptable, what would you do?”
+
+Perfect next answer:
+- consensus commit
+- saga
+- escrow/reservation
+- eventual consistency
+- workflow engine
+
+This is the bridge from mid-level to senior distributed systems thinking.

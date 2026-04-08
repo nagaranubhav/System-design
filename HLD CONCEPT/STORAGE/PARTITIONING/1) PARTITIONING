@@ -1,0 +1,709 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                 HLD MASTER NOTES: PARTITIONING + INDEXING                  ║
+║            (Range, Hash, Local Index, Global Secondary Index)              ║
+║                  FAANG INTERVIEW LEVEL | SUPER DETAILED                    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+==============================================================================
+0) BIG PICTURE — WHAT IS PARTITIONING?
+==============================================================================
+
+INTUITION:
+Socho tumhare paas ek single database server hai jisme:
+- 1 billion users
+- 10 billion messages
+- 100 TB data
+
+Ek machine:
+→ slow ho jayegi
+→ memory overflow
+→ disk I/O bottleneck
+→ queries slow
+
+Solution:
+Divide data across multiple machines.
+
+THIS = PARTITIONING (a.k.a SHARDING)
+
+------------------------------------------------------------------------------
+REAL LIFE ANALOGY
+------------------------------------------------------------------------------
+Library example:
+
+Ek library me 10 million books.
+Agar sab books ek hi shelf pe:
+→ impossible to search
+
+So library splits:
+- A–F → Shelf 1
+- G–M → Shelf 2
+- N–Z → Shelf 3
+
+Now:
+→ faster lookup
+→ parallel access
+→ scalable
+
+------------------------------------------------------------------------------
+CORE IDEA
+------------------------------------------------------------------------------
+Partitioning = splitting large dataset into smaller independent chunks
+Each chunk = partition / shard
+
+Each partition:
+- stored on separate node
+- queried independently
+
+------------------------------------------------------------------------------
+WHY PARTITIONING?
+------------------------------------------------------------------------------
+1) Horizontal scaling
+2) Parallel query execution
+3) Reduced latency
+4) Better cache locality
+5) Fault isolation
+
+------------------------------------------------------------------------------
+ARCHITECTURE THINKING
+------------------------------------------------------------------------------
+Client → Router / API → Decide partition → Forward request
+
+Partition key = decides where data goes
+
+CRITICAL DESIGN QUESTION:
+"What is your partition key?"
+
+Bad key = hotspot
+Good key = balanced system
+
+==============================================================================
+
+
+==============================================================================
+1) RANGE BASED PARTITIONING
+==============================================================================
+
+------------------------------------------------------------------------------
+INTUITION
+------------------------------------------------------------------------------
+Divide data based on value ranges.
+
+Example:
+User IDs:
+1–1M → Server A
+1M–2M → Server B
+2M–3M → Server C
+
+------------------------------------------------------------------------------
+WHY THIS EXISTS?
+------------------------------------------------------------------------------
+Because:
+- range queries are very common
+- sorting is natural
+- sequential data efficient
+
+------------------------------------------------------------------------------
+REAL WORLD ANALOGY
+------------------------------------------------------------------------------
+Phonebook:
+- A–D → page 1
+- E–H → page 2
+
+------------------------------------------------------------------------------
+CORE IDEA
+------------------------------------------------------------------------------
+Partitioning rule:
+if key ∈ range → send to that partition
+
+------------------------------------------------------------------------------
+ARCHITECTURE FLOW
+------------------------------------------------------------------------------
+1) client sends query (user_id = 1.5M)
+2) router checks range mapping
+3) forwards to correct shard
+4) shard processes query
+
+------------------------------------------------------------------------------
+EXAMPLES
+------------------------------------------------------------------------------
+1) Time-series DB:
+2023 → shard A
+2024 → shard B
+
+2) E-commerce orders:
+order_id ranges
+
+3) Logs:
+Jan logs → server 1
+Feb logs → server 2
+
+------------------------------------------------------------------------------
+PROS
+------------------------------------------------------------------------------
+1) Efficient range queries
+   Example:
+   "give all orders between Jan–Feb"
+   → only 1 shard
+
+2) Good for sorting
+3) Predictable routing
+4) Sequential writes efficient
+
+------------------------------------------------------------------------------
+CONS (VERY IMPORTANT)
+------------------------------------------------------------------------------
+1) HOTSPOTTING 🔥
+   If data skewed:
+   Example:
+   All new users → latest range
+   → last shard overloaded
+
+2) Uneven distribution
+3) Rebalancing difficult
+4) Range boundary management
+
+------------------------------------------------------------------------------
+FAILURE CASES
+------------------------------------------------------------------------------
+1) Hot partition overload
+2) uneven disk usage
+3) node failure = entire range unavailable
+4) rebalancing downtime
+
+------------------------------------------------------------------------------
+SCALING BOTTLENECK
+------------------------------------------------------------------------------
+Latest range becomes bottleneck.
+
+Example:
+Instagram new posts → latest timestamp shard
+
+------------------------------------------------------------------------------
+WHEN TO USE
+------------------------------------------------------------------------------
+- time series systems
+- logs
+- analytics queries
+- financial transactions (date range)
+
+------------------------------------------------------------------------------
+WHEN NOT TO USE
+------------------------------------------------------------------------------
+- unpredictable traffic
+- skewed keys
+- user-generated IDs
+
+==============================================================================
+
+
+==============================================================================
+2) HASH BASED PARTITIONING
+==============================================================================
+
+------------------------------------------------------------------------------
+INTUITION
+------------------------------------------------------------------------------
+Instead of range, use hash function.
+
+partition = hash(key) % N
+
+------------------------------------------------------------------------------
+WHY THIS EXISTS?
+------------------------------------------------------------------------------
+Fixes biggest problem of range partitioning:
+→ uneven distribution
+
+------------------------------------------------------------------------------
+REAL LIFE ANALOGY
+------------------------------------------------------------------------------
+Think of distributing students randomly across classes:
+Instead of alphabetical,
+assign randomly → balanced load
+
+------------------------------------------------------------------------------
+CORE IDEA
+------------------------------------------------------------------------------
+hash(key) → random distribution → balanced shards
+
+------------------------------------------------------------------------------
+ARCHITECTURE FLOW
+------------------------------------------------------------------------------
+1) client sends user_id
+2) router computes hash
+3) maps to shard
+4) query executed
+
+------------------------------------------------------------------------------
+EXAMPLES
+------------------------------------------------------------------------------
+User ID:
+hash(12345) % 4 = shard 1
+
+Social media:
+user posts distributed across shards
+
+------------------------------------------------------------------------------
+PROS
+------------------------------------------------------------------------------
+1) UNIFORM DISTRIBUTION
+   → avoids hotspots
+
+2) High scalability
+
+3) Works well for:
+   - writes
+   - random access
+
+------------------------------------------------------------------------------
+CONS
+------------------------------------------------------------------------------
+1) RANGE QUERIES BAD ❌
+
+Example:
+"users between 1–1000"
+→ query ALL shards
+
+2) Hard debugging
+3) Hard data locality
+4) Resharding difficult
+
+------------------------------------------------------------------------------
+FAILURE CASES
+------------------------------------------------------------------------------
+1) node failure → rehashing issues
+2) data redistribution needed
+3) consistency issues during reshard
+
+------------------------------------------------------------------------------
+SCALING BOTTLENECK
+------------------------------------------------------------------------------
+Rebalancing shards expensive.
+
+------------------------------------------------------------------------------
+WHEN TO USE
+------------------------------------------------------------------------------
+- high write systems
+- random access workloads
+- user-based sharding
+- social media apps
+
+------------------------------------------------------------------------------
+WHEN NOT TO USE
+------------------------------------------------------------------------------
+- range queries needed
+- analytics queries
+
+==============================================================================
+
+
+==============================================================================
+3) RANGE vs HASH (INTERVIEW COMPARISON)
+==============================================================================
+
+Range:
+✔ range queries fast
+❌ hotspot risk
+
+Hash:
+✔ uniform load
+❌ range queries slow
+
+Interview line:
+"If workload is read-heavy with range queries → range partitioning.
+If workload is write-heavy with uniform access → hash partitioning."
+
+==============================================================================
+
+
+==============================================================================
+4) LOCAL SECONDARY INDEX
+==============================================================================
+
+------------------------------------------------------------------------------
+INTUITION
+------------------------------------------------------------------------------
+Index that exists WITHIN each partition only.
+
+------------------------------------------------------------------------------
+WHY THIS EXISTS?
+------------------------------------------------------------------------------
+Because:
+Primary key != only query pattern
+
+Example:
+Users partitioned by user_id
+But query:
+"find users by email"
+
+Need index.
+
+------------------------------------------------------------------------------
+REAL LIFE ANALOGY
+------------------------------------------------------------------------------
+Library shelves:
+Each shelf has its own index.
+
+But no global index.
+
+------------------------------------------------------------------------------
+CORE IDEA
+------------------------------------------------------------------------------
+Each partition maintains its own index.
+
+------------------------------------------------------------------------------
+ARCHITECTURE
+------------------------------------------------------------------------------
+Shard A:
+- data
+- index(email)
+
+Shard B:
+- data
+- index(email)
+
+------------------------------------------------------------------------------
+QUERY FLOW
+------------------------------------------------------------------------------
+Search by email:
+→ must query ALL shards ❌
+
+------------------------------------------------------------------------------
+PROBLEM (VERY IMPORTANT)
+------------------------------------------------------------------------------
+Query fan-out:
+→ broadcast query to all shards
+→ collect results
+
+------------------------------------------------------------------------------
+PROS
+------------------------------------------------------------------------------
+1) Simple to maintain
+2) Fast local queries
+3) No cross-shard coordination
+4) scalable writes
+
+------------------------------------------------------------------------------
+CONS
+------------------------------------------------------------------------------
+1) Global queries expensive
+2) latency high (fan-out)
+3) not scalable for large clusters
+
+------------------------------------------------------------------------------
+FAILURE CASES
+------------------------------------------------------------------------------
+1) partial results if some shard down
+2) inconsistent reads
+3) slow queries
+
+------------------------------------------------------------------------------
+WHEN TO USE
+------------------------------------------------------------------------------
+- when queries mostly local to partition
+- when global queries rare
+
+------------------------------------------------------------------------------
+REAL WORLD
+------------------------------------------------------------------------------
+Cassandra local indexes
+DynamoDB local secondary index
+
+==============================================================================
+
+
+==============================================================================
+5) GLOBAL SECONDARY INDEX (GSI)
+==============================================================================
+
+------------------------------------------------------------------------------
+INTUITION
+------------------------------------------------------------------------------
+Separate global index across ALL data.
+
+------------------------------------------------------------------------------
+WHY THIS EXISTS?
+------------------------------------------------------------------------------
+Fix problem of local index:
+→ avoid querying all shards
+
+------------------------------------------------------------------------------
+REAL LIFE ANALOGY
+------------------------------------------------------------------------------
+Library:
+Instead of each shelf index,
+one CENTRAL catalog.
+
+------------------------------------------------------------------------------
+CORE IDEA
+------------------------------------------------------------------------------
+Global index = separate distributed structure
+
+Example:
+email → user_id mapping
+
+------------------------------------------------------------------------------
+ARCHITECTURE
+------------------------------------------------------------------------------
+Main Table:
+Partitioned by user_id
+
+GSI Table:
+Partitioned by email
+
+------------------------------------------------------------------------------
+WRITE FLOW
+------------------------------------------------------------------------------
+1) write main table
+2) update GSI
+3) replication / async update
+
+------------------------------------------------------------------------------
+READ FLOW
+------------------------------------------------------------------------------
+Query email:
+→ hit GSI
+→ get user_id
+→ fetch from main shard
+
+------------------------------------------------------------------------------
+PROS
+------------------------------------------------------------------------------
+1) Fast global queries
+2) no fan-out
+3) flexible query patterns
+
+------------------------------------------------------------------------------
+CONS (VERY IMPORTANT)
+------------------------------------------------------------------------------
+1) WRITE AMPLIFICATION 🔥
+   Each write updates multiple indexes
+
+2) Consistency issues
+   GSI may lag
+
+3) Complex maintenance
+
+4) More storage
+
+------------------------------------------------------------------------------
+FAILURE CASES
+------------------------------------------------------------------------------
+1) GSI lag → stale reads
+2) inconsistency between main + index
+3) partial failures
+
+------------------------------------------------------------------------------
+CONSISTENCY MODEL
+------------------------------------------------------------------------------
+Often eventual consistency.
+
+------------------------------------------------------------------------------
+WHEN TO USE
+------------------------------------------------------------------------------
+- multiple query patterns
+- search-heavy systems
+- flexible queries
+
+------------------------------------------------------------------------------
+WHEN NOT TO USE
+------------------------------------------------------------------------------
+- strict consistency systems
+- write-heavy workloads
+
+------------------------------------------------------------------------------
+REAL SYSTEMS
+------------------------------------------------------------------------------
+DynamoDB GSI
+Cassandra secondary indexes (limitations)
+Elasticsearch (external index)
+
+==============================================================================
+
+
+==============================================================================
+6) LOCAL vs GLOBAL INDEX (INTERVIEW GOLD)
+==============================================================================
+
+Local:
+✔ simple
+✔ fast writes
+❌ global query slow
+
+Global:
+✔ fast reads
+❌ write heavy
+❌ consistency issues
+
+Golden line:
+"Local indexes scale better for writes, while global indexes scale better for
+reads but introduce write amplification and consistency challenges."
+
+==============================================================================
+
+
+==============================================================================
+7) COMBINING PARTITIONING + REPLICATION
+==============================================================================
+
+In real systems:
+
+Each shard:
+→ replicated
+
+Example:
+Shard A:
+Leader + followers
+
+So system:
+Partitioning + replication together.
+
+------------------------------------------------------------------------------
+WHY?
+------------------------------------------------------------------------------
+Partitioning = scale
+Replication = durability + availability
+
+==============================================================================
+
+
+==============================================================================
+8) INTERVIEW DECISION FRAMEWORK
+==============================================================================
+
+When asked:
+"How will you partition data?"
+
+Answer structure:
+
+1) Choose partition key
+2) justify:
+   - access pattern
+   - write distribution
+3) choose strategy:
+   - range vs hash
+4) discuss:
+   - hotspots
+   - rebalancing
+5) indexing:
+   - local vs global
+6) consistency:
+   - replication model
+7) failure handling
+
+==============================================================================
+
+
+==============================================================================
+9) COMMON MISTAKES
+==============================================================================
+
+❌ Choosing wrong partition key
+❌ ignoring hotspots
+❌ not discussing rebalancing
+❌ ignoring index consistency
+❌ not handling failures
+❌ assuming GSI always consistent
+
+==============================================================================
+
+
+==============================================================================
+10) REAL WORLD EXAMPLES
+==============================================================================
+
+Instagram:
+- user_id hash partition
+- feed fan-out
+
+Uber:
+- geo partitioning
+
+Netflix:
+- user-based sharding
+
+Amazon:
+- product catalog + GSI
+
+==============================================================================
+
+
+==============================================================================
+11) FOLLOW-UP QUESTIONS (VERY IMPORTANT)
+==============================================================================
+
+Be ready for:
+
+1) How to handle hotspot?
+→ consistent hashing / randomization
+
+2) How to rebalance shards?
+→ add node + migrate data
+
+3) How to handle GSI lag?
+→ eventual consistency handling
+
+4) What happens if shard fails?
+→ replication + failover
+
+5) How to choose partition key?
+→ access pattern driven
+
+==============================================================================
+
+
+==============================================================================
+12) QUICK REVISION
+==============================================================================
+
+Partitioning:
+→ split data
+
+Range:
+→ good for range queries
+→ hotspot risk
+
+Hash:
+→ balanced
+→ no range queries
+
+Local Index:
+→ per shard
+→ fan-out query
+
+Global Index:
+→ central index
+→ write heavy
+
+==============================================================================
+
+
+==============================================================================
+13) GOLDEN INTERVIEW LINES
+==============================================================================
+
+"Partitioning is driven by access patterns, not data size."
+
+"Range partitioning optimizes for query locality, while hash partitioning
+optimizes for load distribution."
+
+"Global secondary indexes improve read performance at the cost of write
+amplification and eventual consistency."
+
+==============================================================================
+
+
+==============================================================================
+14) WHAT TO STUDY NEXT
+==============================================================================
+
+- Consistent hashing
+- Rebalancing strategies
+- Hot partition mitigation
+- Read-after-write consistency
+- Distributed transactions
+- CQRS pattern
+- Elastic scaling
+==============================================================================
+
+END OF NOTES 🚀

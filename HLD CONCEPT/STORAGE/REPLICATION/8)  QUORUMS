@@ -1,0 +1,500 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                QUORUMS + FAILED WRITES + SLOPPY QUORUMS                    ║
+║           (Leaderless Replication | Dynamo/Cassandra HLD Notes)            ║
+║                    FAANG INTERVIEW MASTER REVISION SHEET                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+================================================================================
+0) FIRST PRINCIPLE — REAL LIFE EXAMPLE BEFORE THEORY
+================================================================================
+
+Imagine 3 branch offices maintain the same customer address database:
+
+- Delhi
+- Bangalore
+- Mumbai
+
+A customer changes address:
+"Old Delhi" → "Gurgaon"
+
+Now problem:
+How many branches must confirm update before we call it SUCCESS?
+
+And when reading:
+How many branches should we ask so we get latest value?
+
+This exact problem is solved by:
+QUORUMS
+
+-------------------------------------------------------------------------------
+CORE IDEA
+-------------------------------------------------------------------------------
+
+Instead of requiring ALL replicas,
+we require:
+"enough replicas"
+
+This “enough” is quorum.
+
+Used heavily in:
+- 
+- 
+- 
+
+================================================================================
+1) WHAT IS QUORUM? (MOST IMPORTANT)
+================================================================================
+
+We define:
+
+N = total replicas
+W = replicas needed for write success
+R = replicas needed for read success
+
+Example:
+N = 3
+
+Possible:
+W = 2
+R = 2
+
+Meaning:
+- write successful after 2 ACKs
+- read from any 2 replicas
+
+-------------------------------------------------------------------------------
+WHY THIS WORKS
+-------------------------------------------------------------------------------
+
+Because:
+write quorum and read quorum overlap.
+
+Golden rule:
+R + W > N
+
+This overlap means:
+at least one read replica likely saw latest write.
+
+================================================================================
+2) STEP-BY-STEP WORKING WITH EXAMPLE
+================================================================================
+
+Suppose:
+
+N = 3
+Nodes = A, B, C
+W = 2
+R = 2
+
+Initial:
+price = 100
+
+-------------------------------------------------------------------------------
+WRITE
+-------------------------------------------------------------------------------
+
+Client updates:
+100 → 120
+
+Sent to:
+A, B, C
+
+A ACK ✅
+B ACK ✅
+C timeout ❌
+
+Write SUCCESS because W=2 reached.
+
+Now state:
+A = 120
+B = 120
+C = 100
+
+-------------------------------------------------------------------------------
+READ
+-------------------------------------------------------------------------------
+
+Client reads from:
+B and C
+
+Gets:
+120 and 100
+
+Since one node overlaps with write quorum,
+latest can be detected.
+
+This is quorum overlap magic.
+
+================================================================================
+3) DOES QUORUM GIVE STRONG CONSISTENCY?
+================================================================================
+
+This is the deep Jordan confusion point.
+Let’s break it honestly.
+
+-------------------------------------------------------------------------------
+SHORT ANSWER
+-------------------------------------------------------------------------------
+
+NOT ALWAYS.
+
+Quorum gives:
+"probabilistic strong-ish consistency"
+
+NOT true linearizable strong consistency by default.
+
+-------------------------------------------------------------------------------
+WHY PEOPLE THINK IT IS STRONG
+-------------------------------------------------------------------------------
+
+Because:
+R + W > N
+
+So overlap guaranteed.
+
+Looks strong.
+
+BUT real distributed systems have edge cases.
+
+================================================================================
+4) WHY QUORUM IS NOT TRULY STRONGLY CONSISTENT
+================================================================================
+
+-------------------------------------------------------------------------------
+CASE 1: CONCURRENT WRITES
+-------------------------------------------------------------------------------
+
+Two clients write same key simultaneously.
+
+Write1:
+A,B = 10
+
+Write2:
+B,C = 20
+
+Both satisfy W=2.
+
+Now read from:
+A,C
+
+Result:
+10 and 20
+
+No single truth.
+
+This is NOT strong consistency.
+
+-------------------------------------------------------------------------------
+CASE 2: CLOCK / VERSION RESOLUTION
+-------------------------------------------------------------------------------
+
+Even with overlap,
+if versions resolved incorrectly
+(stale timestamp / wrong vector merge),
+stale reads possible.
+
+-------------------------------------------------------------------------------
+CASE 3: READ FROM STALE COORDINATOR
+-------------------------------------------------------------------------------
+
+Coordinator may choose stale node first,
+especially in async replication.
+
+-------------------------------------------------------------------------------
+CASE 4: PARTITION + FAILED NODE RECOVERY
+-------------------------------------------------------------------------------
+
+Node comes back after long downtime.
+Old data may still satisfy read quorum temporarily.
+
+-------------------------------------------------------------------------------
+INTERVIEW GOLD LINE
+-------------------------------------------------------------------------------
+
+Quorums improve consistency guarantees, but without synchronous
+replication + strict version ordering they are not fully linearizable.
+
+================================================================================
+5) REAL DEEP INTUITION — WHY NOT STRONG?
+================================================================================
+
+Strong consistency means:
+once write SUCCESS returns,
+NO future read should ever see old value.
+
+Leaderless quorum cannot guarantee this in all failure cases because:
+- writes can race
+- network delays happen
+- replicas may ACK different versions
+- repair is asynchronous
+
+So:
+eventual consistency + quorum overlap
+≠ strict strong consistency
+
+This is a FAANG favorite trap.
+
+================================================================================
+6) FAILED WRITES (VERY IMPORTANT)
+================================================================================
+
+Now the next big Jordan topic.
+
+Example:
+N = 3
+W = 2
+
+Client writes:
+status = shipped
+
+A ACK ✅
+B timeout ❌
+C timeout ❌
+
+Only 1 ACK.
+
+Write FAILED returned.
+
+-------------------------------------------------------------------------------
+BIG QUESTION
+-------------------------------------------------------------------------------
+
+Did write actually happen?
+
+Possible cases:
+
+1) only A stored it
+2) B stored but ACK lost
+3) C stored late
+4) all eventually stored after timeout
+
+So client sees:
+FAILED
+
+But database may contain:
+PARTIAL WRITE
+
+This is dangerous.
+
+-------------------------------------------------------------------------------
+REAL WORLD EXAMPLE
+-------------------------------------------------------------------------------
+
+Payment marked failed on client,
+but one replica actually processed it.
+
+Later stale read confusion.
+
+================================================================================
+7) WHY FAILED WRITES ARE DANGEROUS
+================================================================================
+
+Problems:
+- retries can duplicate writes
+- idempotency required
+- client uncertain state
+- partial visibility
+- reconciliation complexity
+
+Best practice:
+use write IDs / request IDs.
+
+================================================================================
+8) SLOPPY QUORUMS — WHY THEY EXIST
+================================================================================
+
+Normal quorum assumes:
+write to HOME replicas only.
+
+But what if home replica nodes are down?
+
+Should system reject write?
+
+High availability systems say:
+NO.
+
+Instead use:
+SLOPPY QUORUM
+
+-------------------------------------------------------------------------------
+INTUITION
+-------------------------------------------------------------------------------
+
+Write to temporary healthy nodes.
+
+Later move data back.
+
+This keeps system available during failures.
+
+================================================================================
+9) SLOPPY QUORUM EXAMPLE
+================================================================================
+
+Home replicas for key:
+A, B, C
+
+B and C down ❌
+
+Normally:
+W=2 impossible
+
+Without sloppy quorum:
+WRITE FAILS
+
+With sloppy quorum:
+Write to:
+A + D + E
+
+Where:
+D,E are fallback nodes
+
+Write succeeds.
+
+This is:
+best effort quorum over reachable nodes.
+
+-------------------------------------------------------------------------------
+REAL LIFE ANALOGY
+-------------------------------------------------------------------------------
+
+Customer package ka original warehouse बंद hai.
+Nearby temporary warehouse pe parcel store kar diya.
+Later correct warehouse me move.
+
+================================================================================
+10) DOES SLOPPY QUORUM PRESERVE STRONG GUARANTEE?
+================================================================================
+
+NO.
+This makes consistency weaker.
+
+Why?
+
+Because read may still go to:
+A,B,C
+
+But write stored at:
+A,D,E
+
+So read quorum may MISS latest write.
+
+This is huge.
+
+-------------------------------------------------------------------------------
+IMPORTANT CONCLUSION
+-------------------------------------------------------------------------------
+
+Sloppy quorum improves availability
+at cost of quorum overlap guarantees.
+
+This is why:
+R + W > N rule may effectively break.
+
+================================================================================
+11) HINTED HANDOFF CONNECTION
+================================================================================
+
+Sloppy quorum usually paired with:
+HINTED HANDOFF
+
+Temporary node D stores:
+"this belongs to B"
+
+When B comes back:
+D forwards missed write.
+
+Then temporary copy removed.
+
+This restores eventual correctness.
+
+================================================================================
+12) TRADEOFFS (INTERVIEW GOLD)
+================================================================================
+
+-------------------------------------------------------------------------------
+NORMAL QUORUM
+-------------------------------------------------------------------------------
+
++ better consistency
++ quorum overlap
++ simpler reasoning
+- lower availability if home replicas fail
+
+-------------------------------------------------------------------------------
+SLOPPY QUORUM
+-------------------------------------------------------------------------------
+
++ very high availability
++ survives replica outage
++ great for writes during partitions
+- weaker read freshness
+- overlap guarantee breaks
+- hinted handoff complexity
+
+================================================================================
+13) WHEN TO USE WHAT
+================================================================================
+
+NORMAL QUORUM:
+- product catalog
+- user profile
+- order status
+- moderate consistency needed
+
+SLOPPY QUORUM:
+- shopping cart
+- social likes
+- metrics
+- logs
+- high availability systems
+
+Avoid sloppy quorum for:
+- money
+- transactions
+- strict stock count
+
+================================================================================
+14) FINAL INTERVIEW ANSWER STRUCTURE
+================================================================================
+
+If asked:
+"Do quorums guarantee strong consistency?"
+
+Perfect answer:
+
+1) quorum overlap improves freshness
+2) R + W > N ensures intersection
+3) but concurrent writes break linearizability
+4) failed writes create uncertain partial state
+5) sloppy quorum weakens overlap further
+6) hinted handoff restores eventual correctness
+7) therefore quorum is not strict strong consistency
+
+This answer is senior-level.
+
+================================================================================
+15) ONE-LINE MEMORY HOOKS
+================================================================================
+
+- Quorum = enough replicas
+- R + W > N = overlap
+- Overlap != strict strong consistency
+- Failed write may still partially commit
+- Sloppy quorum = temporary fallback replicas
+- Availability ↑ consistency guarantees ↓
+- hinted handoff restores home replicas
+
+================================================================================
+16) WHAT TO STUDY NEXT
+================================================================================
+
+1) hinted handoff deep dive
+2) monotonic reads
+3) read-your-writes consistency
+4) linearizability vs eventual consistency
+5) Dynamo paper quorum anomalies
+6) Cassandra consistency levels
+7) LWT in Cassandra
+8) PACELC theorem
+
+================================================================================
