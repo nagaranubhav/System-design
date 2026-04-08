@@ -1,0 +1,229 @@
+==============================================================
+                MEMENTO DESIGN PATTERN
+==============================================================
+
+CATEGORY:
+Behavioral Design Pattern
+
+INTENT (MOST IMPORTANT):
+"Without violating encapsulation, capture and restore an
+object's internal state later."
+
+One-line:
+State ka snapshot save karo so later rollback / restore ho sake.
+
+Golden line:
+SAVE STATE NOW → RESTORE LATER
+
+--------------------------------------------------------------
+1) CORE INTUITION
+--------------------------------------------------------------
+
+Real life soch:
+
+Google Docs me typing kar raha hai.
+Galti se kuch delete ho gaya.
+
+CTRL + Z kaise kaam karta?
+
+Because old state ka snapshot stored hota hai.
+
+Wahi Memento hai.
+
+Same:
+- game save point
+- DB transaction rollback
+- photo editor undo
+- browser history restore
+- config snapshots
+
+--------------------------------------------------------------
+2) PROBLEM IT SOLVES
+--------------------------------------------------------------
+
+Without memento:
+Old state lost forever ❌
+
+Problems:
+1. rollback impossible
+2. undo hard
+3. state history maintain tough
+4. encapsulation break ho sakta
+5. manual restore complex
+
+Memento solves:
+"state snapshot + later restore"
+
+--------------------------------------------------------------
+3) WHEN TO USE
+--------------------------------------------------------------
+
+Use when:
+1. undo/redo chahiye
+2. rollback chahiye
+3. snapshot history chahiye
+4. save points chahiye
+5. object restore chahiye
+
+Golden trigger:
+"previous state me wapas jana hai"
+
+--------------------------------------------------------------
+4) UML DIAGRAM
+--------------------------------------------------------------
+
+            +----------------------+
+            |      Caretaker       |
+            | TransactionManager   |
+            +----------------------+
+            | backup               |
+            +----------------------+
+                     |
+                     | stores
+                     v
+            +----------------------+
+            |       Memento        |
+            | DatabaseMemento      |
+            +----------------------+
+            | saved records        |
+            +----------------------+
+                     ^
+                     | create / restore
+                     |
+            +----------------------+
+            |     Originator       |
+            |      Database        |
+            +----------------------+
+            | current records      |
+            +----------------------+
+
+--------------------------------------------------------------
+5) PARTICIPANTS
+--------------------------------------------------------------
+
+1) Originator
+Actual object jiska state save hoga
+→ Database
+
+2) Memento
+Snapshot object
+→ DatabaseMemento
+
+3) Caretaker
+Snapshot ko store/manage karega
+→ TransactionManager
+
+--------------------------------------------------------------
+6) WHY WE NEED IT
+--------------------------------------------------------------
+
+Need because:
+- rollback safely
+- encapsulation preserve
+- internal state hide
+- save point support
+- transaction safety
+
+Most important:
+State restore without exposing internals
+
+--------------------------------------------------------------
+7) REAL LIFE USE CASES
+--------------------------------------------------------------
+
+1. Undo / Redo editor
+2. DB transactions
+3. Game checkpoints
+4. Workflow snapshots
+5. Browser tabs restore
+6. Config rollback
+7. Kubernetes deployment rollback
+8. IDE local history
+9. Version control snapshots
+
+--------------------------------------------------------------
+8) MEMENTO vs STRATEGY (IMPORTANT 🔥)
+--------------------------------------------------------------
+
+MEMENTO:
+State save/restore
+
+Focus:
+Object memory/history
+
+Problem:
+Rollback / undo
+
+Example:
+DB rollback
+Text editor undo
+
+--------------------------------------------------------------
+STRATEGY:
+Behavior swap
+
+Focus:
+Algorithm change
+
+Problem:
+Different behavior choices
+
+Example:
+Sort algo
+Payment mode
+
+--------------------------------------------------------------
+KEY DIFFERENCE
+--------------------------------------------------------------
+
+Memento:
+"old state preserve"
+
+Strategy:
+"behavior choose"
+
+--------------------------------------------------------------
+9) ADVANTAGES
+--------------------------------------------------------------
+
+1. rollback support
+2. undo easy
+3. encapsulation safe
+4. snapshot history
+5. clean separation
+6. safer transactions
+
+--------------------------------------------------------------
+10) DISADVANTAGES
+--------------------------------------------------------------
+
+1. large memory usage
+2. deep object snapshots expensive
+3. many snapshots = heavy memory
+4. incremental restore complexity
+
+--------------------------------------------------------------
+11) INTERVIEW GOLD FOLLOW-UPS
+--------------------------------------------------------------
+
+VERY IMPORTANT 🚀
+
+Interviewers may ask:
+- multi-level undo?
+- redo stack?
+- snapshot compression?
+- differential snapshots?
+- copy-on-write?
+- immutable snapshots?
+- persistent history?
+
+--------------------------------------------------------------
+12) GOLDEN TAKEAWAY
+--------------------------------------------------------------
+
+Memento = Snapshot + Restore
+
+Perfect for:
+UNDO / ROLLBACK / SAVEPOINTS
+
+==============================================================
