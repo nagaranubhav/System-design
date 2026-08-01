@@ -1,0 +1,1130 @@
+# 🚀 System Design - Write Conflicts (Version Vectors & CRDTs)
+
+> **Goal:** Multi-Leader Replication mein jab **same data ko multiple leaders ek saath update kar dete hain**, tab conflict ko detect aur resolve kaise karein bina data lose kiye.
+
+---
+
+# 📌 Why do Write Conflicts happen?
+
+Single Leader mein sirf ek database write accept karta tha.
+
+```
+Client
+
+↓
+
+Leader
+
+↓
+
+Write
+```
+
+Conflict ka chance almost zero.
+
+---
+
+Lekin Multi-Leader mein...
+
+```
+        Leader A
+
+         ↑     ↑
+
+       Write   |
+
+              Write
+
+         ↓     ↓
+
+        Leader B
+```
+
+Dono leaders independently writes accept kar sakte hain.
+
+Isi wajah se **Write Conflict** hota hai.
+
+---
+
+# 🤔 What is Concurrent Write?
+
+**Concurrent Write** ka matlab hai
+
+> **Do leaders ne same data ko update kiya, lekin dono ko ek dusre ke update ka pata hi nahi tha.**
+
+Ye zaroori nahi ki exact same millisecond pe ho.
+
+Bas replication hone se pehle dono ne independently write kar diya.
+
+---
+
+## Example
+
+Suppose ek Counter hai.
+
+Initially
+
+```
+Counter = 0
+```
+
+Leader A
+
+```
+0
+
+↓
+
++3
+
+↓
+
+Counter = 3
+```
+
+Leader B
+
+```
+0
+
+↓
+
++5
+
+↓
+
+Counter = 5
+```
+
+Ab problem.
+
+Actual answer kya hona chahiye?
+
+```
+3 ?
+
+5 ?
+
+8 ?
+```
+
+---
+
+## Visualization
+
+```
+          Counter = 0
+
+          /         \
+
+         /           \
+
+Leader A             Leader B
+
++3                    +5
+
+ |                     |
+
+3                     5
+```
+
+Replication baad mein hogi.
+
+Dono ko ek dusre ke updates ka pata nahi tha.
+
+Ye hai
+
+> **Concurrent Writes**
+
+---
+
+# ❌ Naive Solution (Galat Approach)
+
+Sabse common idea
+
+```
+Jo latest timestamp
+
+↓
+
+Wahi Winner
+```
+
+Ya
+
+```
+Jo value badi
+
+↓
+
+Wahi Winner
+```
+
+---
+
+## Example
+
+```
+Leader A
+
+Counter = 3
+```
+
+Leader B
+
+```
+Counter = 5
+```
+
+Naive logic
+
+```
+5 > 3
+
+↓
+
+Keep 5
+
+↓
+
+Discard 3
+```
+
+Final Answer
+
+```
+5
+```
+
+---
+
+## Problem 😭
+
+Actual operations
+
+```
++3
+
++
+
++5
+
+=
+
+8
+```
+
+Lekin database bol raha hai
+
+```
+5
+```
+
+Matlab
+
+```
++3
+
+Lost Forever ❌
+```
+
+Ye **Data Loss** hai.
+
+---
+
+## Real Life Example 🛒
+
+Shopping Cart
+
+Leader A
+
+```
+Added Laptop
+```
+
+Leader B
+
+```
+Added Mouse
+```
+
+LWW bolega
+
+```
+Mouse only
+```
+
+Laptop gayab.
+
+User bolega
+
+> "Bhai maine Laptop bhi add kiya tha 😭"
+
+---
+
+# 🚨 Why Timestamp is NOT Enough?
+
+Suppose
+
+Leader A
+
+```
+10:00
+
+Name = Rahul
+```
+
+Leader B
+
+```
+10:01
+
+Name = Rohit
+```
+
+LWW
+
+```
+Keep Rohit
+```
+
+Lekin
+
+Rahul wala update bhi important ho sakta tha.
+
+Timestamp sirf batata hai
+
+```
+Kab likha gaya
+```
+
+Ye nahi batata
+
+```
+Kya likha gaya
+```
+
+---
+
+# 🧠 Version Vectors (Actual Solution)
+
+Simple Counter rakhne ki jagah
+
+Har Leader ka alag counter rakho.
+
+Is collection ko bolte hain
+
+> **Version Vector**
+
+---
+
+## Example
+
+Suppose 2 Leaders hain.
+
+```
+Leader A
+
+Leader B
+```
+
+Version Vector
+
+```
+[A , B]
+```
+
+Initially
+
+```
+[0,0]
+```
+
+Meaning
+
+```
+Leader A
+
+0 updates
+
+Leader B
+
+0 updates
+```
+
+---
+
+# Working Step-by-Step
+
+Initially
+
+```
+Counter = 0
+
+Version
+
+[0,0]
+```
+
+---
+
+## Step 1
+
+Leader A
+
+```
++3
+```
+
+Version becomes
+
+```
+[1,0]
+```
+
+Meaning
+
+```
+Leader A
+
+1 update
+
+Leader B
+
+0 update
+```
+
+---
+
+## Step 2
+
+Leader B
+
+```
++5
+```
+
+Leader B doesn't know A's update.
+
+Version becomes
+
+```
+[0,1]
+```
+
+---
+
+Now we have
+
+```
+Leader A
+
+Value = 3
+
+Version
+
+[1,0]
+
+---------------
+
+Leader B
+
+Value = 5
+
+Version
+
+[0,1]
+```
+
+---
+
+# Merge Time
+
+Database compares vectors.
+
+```
+Leader A
+
+[1,0]
+
+Leader B
+
+[0,1]
+```
+
+Instead of discarding
+
+Database understands
+
+```
+Leader A has something
+
+Leader B also has something
+```
+
+So merge
+
+```
+3
+
++
+
+5
+
+=
+
+8
+```
+
+Correct Answer.
+
+---
+
+## Real Life Analogy 🎮
+
+Imagine 2 friends playing Minecraft offline.
+
+Friend A
+
+```
+Built House
+```
+
+Friend B
+
+```
+Built Farm
+```
+
+Baad mein game sync hua.
+
+Naive
+
+```
+Keep House
+
+Delete Farm
+```
+
+Version Vector
+
+```
+House
+
++
+
+Farm
+
+↓
+
+Both survive
+```
+
+---
+
+# 📊 What does Version Vector actually store?
+
+It stores
+
+> **Har node ne kitne updates dekhe hain.**
+
+Example
+
+```
+[A,B,C]
+
+=
+
+[3,5,2]
+```
+
+Meaning
+
+Leader A
+
+```
+3 writes
+```
+
+Leader B
+
+```
+5 writes
+```
+
+Leader C
+
+```
+2 writes
+```
+
+---
+
+Ye value nahi store karta.
+
+Ye history store karta hai.
+
+---
+
+# 🔍 Conflict Detection
+
+Sabse important interview topic.
+
+Database compare karta hai
+
+```
+Vector A
+
+vs
+
+Vector B
+```
+
+---
+
+## Case 1 : One Vector dominates
+
+Example
+
+```
+[3,5]
+
+↓
+
+[4,6]
+```
+
+Har position pe
+
+```
+4 > 3
+
+6 > 5
+```
+
+Matlab
+
+```
+Second vector
+
+Everything knows
+
++
+
+Extra updates bhi hain.
+```
+
+Conflict nahi.
+
+Latest version.
+
+---
+
+## Case 2 : Interleaving (Concurrent Updates)
+
+Example
+
+```
+Vector A
+
+[5,2]
+
+Vector B
+
+[3,4]
+```
+
+Compare
+
+```
+5 > 3
+
+BUT
+
+2 < 4
+```
+
+Ek jagah bada.
+
+Ek jagah chhota.
+
+Iska matlab
+
+```
+Dono ne alag-alag updates kiye hain.
+
+Neither is newer.
+
+Neither is older.
+```
+
+Ye hai
+
+> **Concurrent Conflict**
+
+---
+
+## Visualization
+
+```
+Vector A
+
+[5,2]
+
+       ↑
+
+Vector B
+
+[3,4]
+
+       ↑
+```
+
+No clear winner.
+
+---
+
+# 🤝 Conflict Resolution
+
+Ab database ko decision lena padega.
+
+Kaise?
+
+Do major approaches.
+
+```
+Conflict Resolution
+
+│
+
+├── Store Siblings
+
+└── CRDT
+```
+
+---
+
+# 🧑‍🤝‍🧑 Method 1 : Store Siblings
+
+Database
+
+Winner choose nahi karta.
+
+Instead
+
+Dono values store karta hai.
+
+---
+
+## Example
+
+Photo Tag
+
+Leader A
+
+```
+Cute
+```
+
+Leader B
+
+```
+Scary
+```
+
+Database
+
+```
+Cute
+
+AND
+
+Scary
+```
+
+Both stored.
+
+---
+
+Later
+
+Application decide karegi
+
+Ya
+
+User choose karega.
+
+---
+
+## Visualization
+
+```
+Conflict
+
+↓
+
+Store Both
+
+↓
+
+Resolve Later
+```
+
+---
+
+## Real Life Example
+
+Google Docs
+
+Suppose
+
+Do users same line edit karte hain.
+
+Kabhi kabhi
+
+```
+<<<<<< Version A
+
+======
+
+Version B
+
+>>>>>>>
+```
+
+Dono changes dikh jaate hain.
+
+User decide karta hai.
+
+---
+
+## Advantages
+
+✅ No Data Loss
+
+---
+
+## Disadvantages
+
+❌ Manual Resolution
+
+Application thodi complex ho jaati hai.
+
+---
+
+# 🤖 Method 2 : CRDT (Conflict-free Replicated Data Types)
+
+Sabse advanced approach.
+
+Idea
+
+Database khud intelligently merge kare.
+
+User ko kuch karna hi na pade.
+
+---
+
+## Example : Counter
+
+Leader A
+
+```
++3
+```
+
+Leader B
+
+```
++5
+```
+
+CRDT automatically
+
+```
+3
+
++
+
+5
+
+=
+
+8
+```
+
+No conflict.
+
+---
+
+## Example : Set
+
+Leader A
+
+```
+Apple
+```
+
+Leader B
+
+```
+Banana
+```
+
+CRDT
+
+```
+Apple
+
+Banana
+```
+
+Automatic merge.
+
+---
+
+## Real Life Example 🛒
+
+Shopping Cart
+
+Leader A
+
+```
+Laptop
+```
+
+Leader B
+
+```
+Mouse
+```
+
+CRDT
+
+```
+Laptop
+
++
+
+Mouse
+```
+
+Perfect.
+
+---
+
+# Common CRDT Examples
+
+### 🔢 Counter CRDT
+
+```
++5
+
++
+
++3
+
+=
+
+8
+```
+
+---
+
+### 📦 Set CRDT
+
+```
+Apple
+
+Banana
+
+Orange
+```
+
+Duplicates automatically handled.
+
+---
+
+### 🛒 Shopping Cart
+
+```
+Laptop
+
+Mouse
+
+Keyboard
+```
+
+Everything merged.
+
+---
+
+# ⚖️ Comparison
+
+## Naive Approach
+
+```
+Winner
+
+↓
+
+Delete Others
+```
+
+Data Loss.
+
+---
+
+## Version Vector
+
+```
+Detect Conflict
+
+↓
+
+Resolve Later
+```
+
+Safe.
+
+---
+
+## CRDT
+
+```
+Detect
+
+↓
+
+Auto Merge
+```
+
+Smart.
+
+---
+
+# 📊 Summary Table
+
+| Method | Strategy | Data Loss | Best Use Case |
+|----------|-----------|-----------|---------------|
+| Last Write Wins | Latest Timestamp Wins | ❌ Possible | Simple Applications |
+| Version Vectors | Track history per node | ✅ No | Detect concurrent writes |
+| Store Siblings | Save all conflicting values | ✅ No | Manual/App-level resolution |
+| CRDT | Automatic merge | ✅ No | Counters, Sets, Shopping Cart |
+
+---
+
+# 📌 Version Vector vs Normal Version Number
+
+| Normal Version | Version Vector |
+|----------------|----------------|
+| Single Counter | Counter per Leader |
+| Cannot detect concurrency | Detects concurrent writes |
+| Data Loss Possible | Safe Conflict Detection |
+| Simple | More Powerful |
+
+---
+
+# 🎯 Interview Questions
+
+### Q1. Why does Multi-Leader Replication create write conflicts?
+
+Because **multiple leaders can update the same key independently before replication happens**, so each leader is unaware of the other's write.
+
+---
+
+### Q2. Why is Last Write Wins not always correct?
+
+It simply **discards one valid write**, which can lead to permanent **data loss**.
+
+---
+
+### Q3. What is a Version Vector?
+
+A Version Vector stores **one version counter for each leader/node**, allowing the system to understand the history of updates instead of relying on a single timestamp.
+
+---
+
+### Q4. How do Version Vectors detect concurrent writes?
+
+If one vector is larger in some positions and smaller in others (**interleaving**), then neither version is newer—they were created **concurrently**.
+
+Example:
+
+```
+[5,2]
+
+vs
+
+[3,4]
+```
+
+---
+
+### Q5. What is the difference between Store Siblings and CRDT?
+
+- **Store Siblings:** Keep all conflicting versions and resolve later (by user or application logic).
+- **CRDT:** Merge compatible data automatically without losing information.
+
+---
+
+# ⚡ FAANG Interview Summary (30 Seconds)
+
+```
+              Write Conflicts
+
+                    │
+      ┌─────────────┴─────────────┐
+      │                           │
+Concurrent Writes          Independent Leaders
+      │
+      ▼
+Conflict
+
+Wrong Solution
+│
+└── Last Write Wins
+        └── Data Loss
+
+Correct Detection
+│
+└── Version Vectors
+        └── Counter Per Node
+
+Conflict Resolution
+│
+├── Store Siblings
+│      └── Resolve Later
+│
+└── CRDT
+       └── Auto Merge
+```
+
+---
+
+# 🧠 Memory Trick
+
+```
+⚔️ Multi Leader
+
+↓
+
+Concurrent Writes
+
+↓
+
+Conflict
+
+❌ LWW
+→ Loses Data
+
+✅ Version Vector
+→ Detects Conflict
+
+👨‍👩‍👧 Store Siblings
+→ Keep Both
+
+🤖 CRDT
+→ Merge Automatically
+```
+
+> **🔥 Golden Rule:** **Timestamp sirf "kab" batata hai, Version Vector "kisne kya history dekhi hai" batata hai.** Isi wajah se Version Vectors concurrent writes ko accurately detect kar sakte hain, aur CRDTs un conflicts ko automatically resolve karne ki capability dete hain.

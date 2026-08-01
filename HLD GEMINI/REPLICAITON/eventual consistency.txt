@@ -1,0 +1,15 @@
+Is video mein **Eventual Consistency** aur usse hone wali problems ko handle karne ke tarike bataye gaye hain. Jab hum systems design karte hain, toh strong consistency har jagah maintain karna mushkil hota hai, isliye hum eventual consistency ka use karte hain. Yahan uske main issues aur solutions diye gaye hain:
+
+1. **Reading Your Own Writes (2:29 - 4:09):**
+   - **Problem:** User ne data update kiya, par jab wo turant read karta hai, toh use purana (stale) data dikhta hai.
+   - **Solution:** Jis database par write kiya hai, usi se read karo (session consistency) ya timestamp ka use karke check karo ki updated data aaya hai ya nahi.
+
+2. **Monotonic Reads (4:10 - 6:36):**
+   - **Problem:** User ki reads samay mein piche ja sakti hain (reverse order mein data milna).
+   - **Solution:** User ko hamesha ek hi specific replica se data read karne ke liye bolo (e.g., User ID ka modulo use karke).
+
+3. **Consistent Prefix Reads (6:38 - 9:00):**
+   - **Problem:** Partitioning ke karan causally-dependent messages (jaise 'Lunch chaloge?' aur 'Haan') alag-alag order mein mil sakte hain.
+   - **Solution:** Jo messages causally connected hain (like reply functionality), unhe same partition mein rakho taaki wo sahi order mein process hon.
+
+**Key Takeaway:** Eventual consistency poori tarah se avoid nahi ki ja sakti, par ye 'hacks' use karke hum user experience ko kafi had tak behtar bana sakte hain.

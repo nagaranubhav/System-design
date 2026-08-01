@@ -1,0 +1,27 @@
+Bilkul, ye raha is video ka detailed aur structured summary notes (System Design: Write Conflicts): 
+
+### **1. Concurrent Writes ki Problem**
+*   **Multi-leader replication** mein throughput toh badh jaata hai, lekin *write conflicts* ka risk hota hai (0:35 - 0:53).
+*   **Concurrent Writes:** Jab do alag-alag leader nodes par updates hote hain aur dono nodes ko ek-dusre ke updates ka pata nahi hota, toh unhe 'concurrent' kaha jaata hai (2:36 - 3:03).
+*   *Naive approach:* Sirf timestamp ya higher value (jaise 5 > 3) use karna galat hota hai kyunki isse data loss ho sakta hai (1:56 - 2:33).
+
+### **2. Version Vectors (The Solution)**
+*   **Concept:** Har leader node par sirf counter store karne ke bajaye, hum ek *version vector* store karte hain (3:05 - 3:34).
+*   **Kaise kaam karta hai:**
+    *   Ye vector track karta hai ki har node ne kitne increments dekhe hain (e.g., `[3, 5]`) (3:40).
+    *   Merge karte waqt, vectors ko combine karke sahi total (e.g., `3 + 5 = 8`) nikala jaata hai (4:20 - 4:40).
+*   **Conflict Detection:** Agar do vectors ko compare karte waqt values *interleave* ho rahi hain (ek value badi hai aur dusri choti), toh hume pata chalta hai ki ye updates *concurrent* hain (7:46 - 8:32).
+
+### **3. Conflicts ko Handle Kaise Karein?**
+*   **Storing Siblings:** Jab conflict detect ho, toh dono values (e.g., "Cute" aur "Scary") ko database mein store kar lo (9:39 - 9:54).
+    *   *Resolution:* User se pooch kar ya application logic se baad mein fix karo (10:04 - 10:20).
+*   **CRDTs (Conflict-free Replicated Data Types):** Database khud automatic tareeke se merge kar leta hai bina kisi conflict ke (10:28 - 10:50).
+    *   *Examples:* Counters, Sets, etc.
+
+--- 
+**Summary Table:**
+| Method | Strategy | Outcome |
+| :--- | :--- | :--- |
+| **Naive** | Last Write Wins | Data Loss |
+| **Version Vectors** | Track increments per node | Accurate merge |
+| **CRDTs** | Automatic conflict resolution | Consistency |

@@ -1,0 +1,23 @@
+Is video mein **multi-leader replication** ke concepts aur challenges ko samjhaya gaya hai. Yahan uske notes diye gaye hain:
+
+### **Multi-Leader Replication Kya Hai?** (0:45 - 1:21)
+* Isme ek se zyada **leader nodes** hote hain, jahan koi bhi node write request accept kar sakta hai.
+* **Fayde:** Ye write throughput badhata hai aur geographic latency (user ki location ke hisaab se) kam karta hai.
+
+### **Replication Topologies** (1:48 - 4:18)
+1. **Circle Topology:** Sabhi nodes ek circle mein connected hote hain. *Darr:* Ek node fail hone par poora system ruk jata hai.
+2. **Star Topology:** Ek central node hota hai baaki nodes usse communicate karte hain. *Darr:* Agar central node down hua, toh communication band.
+3. **All-to-All Topology:** Sabhi nodes ek-dusre se connected hote hain. *Fayda:* Durability achi hai, par **causality** aur order ke issues ho sakte hain.
+
+### **Replication Log Management** (5:37 - 6:58)
+* Rights ko baar-baar apply hone se bachane ke liye, replication log mein track kiya jata hai ki kaunse node ne kaunsa write dekh liya hai.
+
+### **Right Conflicts** (7:03 - 8:07)
+* Jab do alag nodes par ek hi key ke liye alag values write ki jati hain, toh conflict hota hai.
+* **Conflict Avoidance:** Har key ke liye specific node set karna (sharding), lekin ye throughput limit kar sakta hai.
+
+### **Last Write Wins (LWW) aur Challenges** (9:09 - 13:00)
+* **Timestamp Problem:** LWW mein hum timestamp use karte hain, par:
+    * **Clock Skew:** Computer clocks perfect nahi hoti (quartz crystal drift).
+    * **NTP (Network Time Protocol):** Network delay ki wajah se time jump ya peeche ho sakta hai, jo data loss kara sakta hai.
+* Conclusion: Filhal koi perfect solution nahi hai jo bina data loss ke conflicts resolve kar sake, ispe aur advance research ki zarurat hoti hai.

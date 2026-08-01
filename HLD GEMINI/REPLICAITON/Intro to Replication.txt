@@ -1,0 +1,16 @@
+Is video mein **Database Replication** ke baare mein explain kiya gaya hai. Yaha uske top-level notes diye gaye hain:
+
+### 1. Replication Kyun Zaroori Hai? (1:02 - 4:37)
+Replication ka matlab hai database ki multiple copies banana. Iske main fayde:
+* **Data Durability:** Agar ek server crash ho jaye ya kharab ho jaye, toh doosre replica se data bachaya ja sakta hai (3:36 - 3:52).
+* **High Throughput:** Read aur write requests ko distribute karke zyada users ko handle kiya ja sakta hai (3:55 - 4:12).
+* **Geo-Optimization:** Database ko users ke kareeb (jaise Australia ya Europe mein) place karke latency kam ki ja sakti hai (4:18 - 4:37).
+
+### 2. Replication ke Types (5:00 - 7:36)
+* **Synchronous Replication:** Write tabhi confirm hota hai jab saare replicas update ho jayein. Isse **Strong Consistency** milti hai, lekin performance/latency par asar padta hai (5:05 - 6:05).
+* **Asynchronous Replication:** Primary database turant confirm kar deta hai aur background mein replicas update hote hain. Isse **Eventual Consistency** milti hai, jo modern web apps mein common hai (6:07 - 7:36).
+
+### 3. Replication ke Methods (7:46 - 10:38)
+* **Statement-based:** Seedhe SQL statements copy karna (e.g., `INSERT`). Yeh non-deterministic functions (jaise `time.now()`) ki wajah se risky hota hai (8:06 - 8:51).
+* **Write-Ahead Log (WAL):** Disk ke byte-level changes ko copy karna. Yeh accurate hai par database-specific hota hai, isliye cross-platform (e.g., MySQL to PostgreSQL) replication mein dikkat aati hai (8:53 - 9:43).
+* **Replication/Logical Log (Best Method):** Yeh row-level IDs par changes record karta hai. Yeh database-agnostic hai, matlab alag-alag database engines ke beech bhi data sync kar sakta hai (9:48 - 10:38).

@@ -1,0 +1,1111 @@
+# Eventual Consistency Problems & Solutions 🚀
+> **Goal:** Understand the problems caused by Eventual Consistency and the common techniques used by large-scale systems (Google, Meta, Amazon, Netflix) to improve user experience.
+
+---
+
+# What is Eventual Consistency?
+
+In distributed systems, data is replicated across multiple servers.
+
+When a write happens, **all replicas are NOT updated immediately.**
+
+Instead,
+
+```
+Write
+
+↓
+
+Primary Updated
+
+↓
+
+Background Replication
+
+↓
+
+Replica 1 Updated
+
+↓
+
+Replica 2 Updated
+
+↓
+
+Replica 3 Updated
+```
+
+Until every replica receives the update,
+
+**different replicas may have different data.**
+
+Eventually...
+
+```
+Primary == Replica1 == Replica2 == Replica3
+```
+
+Hence the name
+
+> **Eventual Consistency**
+
+---
+
+# Why do we use Eventual Consistency?
+
+Because Strong Consistency is expensive.
+
+Strong Consistency
+
+```
+Every replica must update
+
+↓
+
+Then reply
+
+↓
+
+Slow
+```
+
+Eventual Consistency
+
+```
+Primary updates
+
+↓
+
+Immediately reply
+
+↓
+
+Replicas sync later
+
+↓
+
+Fast
+```
+
+Trade-off
+
+```
+Fast Performance
+
+vs
+
+Latest Data
+```
+
+Modern companies usually choose
+
+✅ Better Performance
+
+and solve consistency issues using smart techniques.
+
+---
+
+# Problems in Eventual Consistency
+
+There are mainly **3 major user-facing problems**.
+
+```
+Eventual Consistency
+        │
+        ├── Reading Your Own Writes
+        ├── Monotonic Reads
+        └── Consistent Prefix Reads
+```
+
+---
+
+# 1. Reading Your Own Writes (RYOW)
+
+## Problem
+
+You update your data.
+
+Immediately after,
+
+you read it.
+
+But you receive old data.
+
+---
+
+## Real Life Example
+
+Instagram Profile
+
+You change your profile picture.
+
+```
+Old DP
+
+↓
+
+Upload New DP
+
+↓
+
+Success
+```
+
+Now you refresh.
+
+Expected
+
+```
+New DP
+```
+
+Actual
+
+```
+Old DP 😐
+```
+
+Why?
+
+Because
+
+```
+Write
+
+↓
+
+Primary Updated
+
+↓
+
+Replica NOT Updated Yet
+
+↓
+
+Read goes to Replica
+
+↓
+
+Old Data Returned
+```
+
+---
+
+## Visualization
+
+```
+            Write
+
+User ----------------> Primary
+
+                          |
+
+                    New Name = Alex
+
+                          |
+
+                    Replication Running
+
+                          |
+
+User reads -----------------------> Replica
+
+                           Old Name = John
+```
+
+User gets confused.
+
+"I just changed it!"
+
+---
+
+## Why does this happen?
+
+Because
+
+```
+Write
+
+↓
+
+Primary
+
+↓
+
+Read
+
+↓
+
+Replica
+```
+
+Different databases.
+
+Replica is still behind.
+
+---
+
+# Solution 1 : Read From Primary (Session Consistency)
+
+Simple idea
+
+After a user performs a write,
+
+temporarily force all reads
+
+to go to the same server
+
+that accepted the write.
+
+```
+User
+
+↓
+
+Write
+
+↓
+
+Primary
+
+↓
+
+Read
+
+↓
+
+Primary
+```
+
+No stale data.
+
+---
+
+## Real Life Example
+
+Changing Password
+
+```
+Change Password
+
+↓
+
+Immediately Login
+
+↓
+
+Always verify from Primary
+```
+
+Imagine logging in with the new password but the replica still has the old password.
+
+That would be terrible.
+
+---
+
+## Pros
+
+✅ Always sees latest data
+
+Simple implementation
+
+---
+
+## Cons
+
+Primary receives extra load.
+
+Cannot route every read to replicas.
+
+---
+
+# Solution 2 : Timestamp Based Reads
+
+Instead of always reading from Primary,
+
+remember
+
+**when the write happened.**
+
+Example
+
+```
+Write Time
+
+10:30:15
+```
+
+Now while reading,
+
+Replica says
+
+```
+Latest Data
+
+10:30:10
+```
+
+Oops.
+
+Replica is behind.
+
+System waits
+
+or
+
+redirects request to Primary.
+
+---
+
+## Visualization
+
+```
+Client
+
+Write Timestamp = 105
+
+↓
+
+Replica Version = 101
+
+↓
+
+101 < 105
+
+↓
+
+Replica Behind
+
+↓
+
+Read from Primary
+```
+
+---
+
+## Used In
+
+Large distributed databases.
+
+Useful when
+
+```
+Many Replicas
+
+Many Regions
+```
+
+---
+
+# Summary
+
+```
+Problem
+
+You cannot read your own update.
+
+↓
+
+Reason
+
+Read reached stale replica.
+
+↓
+
+Solutions
+
+Read Primary
+
+or
+
+Timestamp Check
+```
+
+---
+
+# 2. Monotonic Reads
+
+## Definition
+
+A user should never observe time moving backward.
+
+Every new read should be
+
+at least as fresh
+
+as the previous one.
+
+---
+
+## Real Life Example
+
+WhatsApp
+
+Unread Messages
+
+Suppose
+
+Replica A
+
+```
+100 Messages
+```
+
+Replica B
+
+```
+95 Messages
+```
+
+User first connects to Replica A.
+
+```
+Messages = 100
+```
+
+Next request goes to Replica B.
+
+```
+Messages = 95
+```
+
+Looks like
+
+```
+100
+
+↓
+
+95
+```
+
+Time moved backwards.
+
+Impossible.
+
+---
+
+## Another Example
+
+Instagram Followers
+
+```
+Read 1
+
+Followers = 5012
+
+↓
+
+Next Refresh
+
+Followers = 5008
+```
+
+Nobody unfollowed.
+
+Replica was stale.
+
+---
+
+## Visualization
+
+```
+Replica A
+
+Version 20
+
+↓
+
+Replica B
+
+Version 18
+
+↓
+
+User
+
+20
+
+↓
+
+18 ❌
+```
+
+---
+
+# Solution
+
+Always route one user
+
+to the same replica.
+
+Example
+
+```
+Replica = UserID % NumberOfReplicas
+```
+
+```
+User 21
+
+↓
+
+21 % 3
+
+↓
+
+Replica 0
+```
+
+Every request goes there.
+
+---
+
+## Why does this work?
+
+Because
+
+Same replica
+
+↓
+
+Same data progression
+
+↓
+
+No backward movement
+
+---
+
+## Real Life Analogy
+
+Imagine watching a movie.
+
+First half
+
+```
+Netflix Server A
+```
+
+Second half suddenly switches
+
+to
+
+```
+Server B
+
+20 minutes behind
+```
+
+Movie starts going backward.
+
+Obviously bad experience.
+
+---
+
+## Advantages
+
+Simple
+
+Predictable
+
+No backward reads
+
+Better user experience
+
+---
+
+## Disadvantages
+
+One replica may become overloaded.
+
+If that replica fails,
+
+user must switch to another.
+
+---
+
+# Summary
+
+```
+Problem
+
+Reads go backward.
+
+↓
+
+Reason
+
+Different replicas.
+
+↓
+
+Solution
+
+Sticky Replica
+
+(UserID Hash)
+
+Same replica every time.
+```
+
+---
+
+# 3. Consistent Prefix Reads
+
+## Definition
+
+If Event A happened before Event B,
+
+users should never see
+
+B before A.
+
+Order must remain correct.
+
+---
+
+## Real Life Example
+
+WhatsApp Chat
+
+Person A
+
+```
+Lunch chale?
+```
+
+Person B replies
+
+```
+Haan
+```
+
+Correct Order
+
+```
+Lunch chale?
+
+↓
+
+Haan
+```
+
+Imagine seeing
+
+```
+Haan
+
+↓
+
+Lunch chale?
+```
+
+Makes no sense.
+
+---
+
+## Why does this happen?
+
+Suppose
+
+Messages stored in different partitions.
+
+```
+Partition 1
+
+Lunch chale?
+
+↓
+
+Delayed
+```
+
+```
+Partition 2
+
+Haan
+
+↓
+
+Fast
+```
+
+Replica receives
+
+```
+Haan
+
+↓
+
+Lunch chale?
+```
+
+Wrong order.
+
+---
+
+## Visualization
+
+```
+Message A
+
+↓
+
+Partition 1
+
+↓
+
+Delayed
+
+--------------------
+
+Message B
+
+↓
+
+Partition 2
+
+↓
+
+Fast
+```
+
+Receiver sees
+
+```
+B
+
+↓
+
+A
+```
+
+Wrong.
+
+---
+
+# Solution
+
+Store causally related messages
+
+inside the same partition.
+
+```
+Chat 101
+
+↓
+
+Partition 5
+
+↓
+
+Message A
+
+↓
+
+Message B
+```
+
+Since one partition processes sequentially,
+
+order remains correct.
+
+---
+
+## Modern Example
+
+Threaded Replies
+
+```
+Tweet
+
+↓
+
+Reply
+
+↓
+
+Reply to Reply
+```
+
+Usually stored together
+
+to preserve ordering.
+
+---
+
+## Why Same Partition?
+
+Within one partition
+
+```
+FIFO
+
+(First In First Out)
+```
+
+Messages are processed
+
+in the exact arrival order.
+
+---
+
+## Advantages
+
+Correct ordering
+
+No confusing conversations
+
+Easy causal reasoning
+
+---
+
+## Disadvantages
+
+One partition can become hot.
+
+Large conversations
+
+may overload one partition.
+
+---
+
+# Summary
+
+```
+Problem
+
+Dependent events appear
+out of order.
+
+↓
+
+Reason
+
+Different partitions.
+
+↓
+
+Solution
+
+Store related events
+inside same partition.
+```
+
+---
+
+# Complete Picture
+
+```
+                 Eventual Consistency
+                          │
+      ┌───────────────────┼────────────────────┐
+      │                   │                    │
+      ▼                   ▼                    ▼
+Reading Your      Monotonic Reads     Consistent Prefix
+Own Writes                               Reads
+      │                   │                    │
+Read old data      Reads go backward   Wrong message order
+      │                   │                    │
+      ▼                   ▼                    ▼
+Read Primary        Sticky Replica      Same Partition
+Timestamp Check     UserID Hash         Causal Grouping
+```
+
+---
+
+# Real Companies Examples
+
+## Instagram
+
+Problem
+
+```
+Profile Updated
+
+↓
+
+Old Profile Visible
+```
+
+Solution
+
+```
+Read from Primary
+```
+
+---
+
+## WhatsApp
+
+Problem
+
+```
+100 Messages
+
+↓
+
+95 Messages
+```
+
+Solution
+
+```
+Same Replica
+```
+
+---
+
+## Twitter / X
+
+Problem
+
+```
+Reply
+
+↓
+
+Original Tweet
+```
+
+Solution
+
+```
+Store conversation together
+```
+
+---
+
+## Amazon
+
+Problem
+
+```
+Added to Cart
+
+↓
+
+Cart Empty
+```
+
+Solution
+
+```
+Session Consistency
+
+(Read after Write)
+```
+
+---
+
+## Netflix
+
+Problem
+
+```
+Continue Watching
+
+↓
+
+Episode Missing
+```
+
+Solution
+
+```
+Session Consistency
+```
+
+---
+
+# Interview Questions ⭐
+
+### Q1. What is Eventual Consistency?
+
+Replica updates happen asynchronously.
+
+All replicas become consistent **eventually**, not immediately.
+
+---
+
+### Q2. What is Reading Your Own Writes?
+
+User updates data but immediately reads stale data because the read went to an outdated replica.
+
+**Solution:** Read from Primary (Session Consistency) or use Timestamp/Version checks.
+
+---
+
+### Q3. What is Monotonic Read?
+
+A user's subsequent reads should never return **older** data than previous reads.
+
+**Solution:** Sticky sessions / always route the user to the same replica.
+
+---
+
+### Q4. What is Consistent Prefix Read?
+
+If event **A happened before B**, users should never observe **B before A**.
+
+**Solution:** Keep causally related events in the same partition.
+
+---
+
+### Q5. Are these solutions giving Strong Consistency?
+
+❌ No.
+
+These are **client-side/system-level guarantees** that improve the user experience.
+
+The database is still **eventually consistent** underneath.
+
+---
+
+# FAANG Interview Summary (30 Seconds)
+
+```
+Eventual Consistency
+
+│
+├── Fast Writes
+├── Background Replication
+└── Replicas may be stale
+
+Problems
+│
+├── Reading Your Own Writes
+│      ├── Old data after update
+│      └── Fix → Read Primary / Timestamp
+│
+├── Monotonic Reads
+│      ├── Reads go backward
+│      └── Fix → Sticky Replica (Hash UserID)
+│
+└── Consistent Prefix Reads
+       ├── Wrong event order
+       └── Fix → Same Partition for related events
+```
+
+---
+
+# Memory Trick 🧠
+
+```
+Eventual Consistency Problems
+
+RYOW
+→ "I changed it, why can't I see it?"
+→ Read Primary
+
+Monotonic Reads
+→ "Time should never go backwards."
+→ Same Replica
+
+Consistent Prefix Reads
+→ "Cause should always come before Effect."
+→ Same Partition
+```
+
+> **Golden Rule:** Eventual Consistency is a **performance optimization**. We don't eliminate its inconsistencies completely—we apply techniques like **Session Consistency**, **Sticky Replicas**, and **Causal Ordering** to hide them from users and provide a much smoother experience.

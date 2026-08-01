@@ -1,0 +1,17 @@
+Yeh rahe is video ke notes, leaderless replication ke upar:
+
+**Leaderless Replication Kya Hai?** (0:40 - 1:06)
+* Traditional systems mein hum ek leader node ko write karte hain, par leaderless replication mein hum **ek sath bahut saare nodes** par write aur read karte hain.
+* Yeh concept *Cassandra* aur *Riak* jaise databases mein use hota hai (DynamoDB isme nahi aata).
+
+**Data Consistency kaise manage hoti hai?** (1:55 - 4:48)
+* **Version Vectors/Snapshots:** Har key ke sath ek version number hota hai (e.g., version 20 se 21). Jiski version value badi hoti hai, wahi data sahi maana jaata hai.
+* **Read Repair (2:59 - 3:36):** Jab hum read karte hain aur kisi node par purana (stale) data milta hai, toh hum turant usse sahi value likh kar update kar dete hain.
+* **Anti-Entropy (3:49 - 4:48):** Background mein background processes chalti hain jo nodes ke beech data compare karke sync karti hain taaki sabhi nodes par data consistent rahe.
+
+**Merkle Trees (5:45 - 9:39):**
+* Yeh ek efficient tareeka hai do databases ke beech difference pata karne ka.
+* **Kaise kaam karta hai?**
+    * Har row ka hash nikal kar tree banaya jaata hai (6:23).
+    * Agar nodes ka **Root Hash** match nahi karta, toh hum neeche jaakar check karte hain ki kis branch mein data alag hai (7:52).
+    * Iska fayda yeh hai ki humein poora table scan nahi karna padta, hum **O(log n)** complexity mein difference dhoondh lete hain.

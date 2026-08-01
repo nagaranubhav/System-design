@@ -1,0 +1,821 @@
+# Database Replication - Quick Revision Notes 🚀
+
+> Goal: Keep multiple copies (replicas) of a database to improve reliability, scalability, and availability.
+
+---
+
+# 1. What is Database Replication?
+
+Database Replication = Keeping multiple copies of the same database synchronized.
+
+```
+             Client
+                |
+        ----------------
+        |              |
+      Read          Write
+        |              |
+        v              v
+       Replica ---> Primary
+           ^            |
+           |____________|
+          Replication
+```
+
+Whenever data changes in the Primary Database, those changes are copied to one or more Replicas.
+
+---
+
+# Why do we need Replication?
+
+## 1. Data Durability
+
+If one database crashes, another copy already exists.
+
+Without Replication
+
+```
+Database
+   |
+Crash ❌
+   |
+Data Lost
+```
+
+With Replication
+
+```
+Primary -----> Replica 1
+     \
+      -------> Replica 2
+
+Primary crashes ❌
+
+Replica becomes new database ✅
+```
+
+Benefit
+
+- No data loss (depending on replication mode)
+- High Availability
+- Disaster Recovery
+
+---
+
+## 2. Higher Throughput
+
+Thousands or millions of users may read data simultaneously.
+
+Instead of sending every request to one database:
+
+```
+               Clients
+                  |
+      -------------------------
+      |           |           |
+      v           v           v
+   Replica1   Replica2   Replica3
+        \        |        /
+          \      |      /
+             Primary
+```
+
+### Common Strategy
+
+Writes
+
+```
+Client
+   |
+Primary
+```
+
+Reads
+
+```
+Client
+   |
+Replica
+```
+
+This is called
+
+> Read Scaling
+
+Advantages
+
+- Less load on Primary
+- More concurrent users
+- Faster read performance
+
+---
+
+## 3. Geo Optimization
+
+Suppose users exist worldwide.
+
+Without Replication
+
+```
+India User --------> USA Database
+```
+
+Every request travels across the world.
+
+Latency ↑
+
+With Replication
+
+```
+India User ---> India Replica
+
+Europe User ---> Europe Replica
+
+USA User ---> USA Primary
+```
+
+Benefits
+
+- Lower latency
+- Faster response
+- Better user experience
+
+---
+
+# Replication Types
+
+There are mainly two types.
+
+---
+
+# 1. Synchronous Replication
+
+## Flow
+
+```
+Client
+   |
+Write Request
+   |
+Primary
+   |
+Copies data to ALL Replicas
+   |
+Wait...
+   |
+Replica 1 ✓
+
+Replica 2 ✓
+
+Replica 3 ✓
+   |
+Only then
+   |
+Success returned to Client
+```
+
+Primary waits for every replica.
+
+Only after every replica confirms,
+
+Client receives Success.
+
+---
+
+## Example
+
+```
+INSERT User
+
+Primary writes.
+
+↓
+
+Replica A writes.
+
+↓
+
+Replica B writes.
+
+↓
+
+Replica C writes.
+
+↓
+
+Client gets Success.
+```
+
+---
+
+## Properties
+
+✅ Strong Consistency
+
+Every database has exactly same data.
+
+No stale reads.
+
+---
+
+## Advantages
+
+- No inconsistent data
+- Excellent durability
+- Safe for banking systems
+- No stale replicas
+
+---
+
+## Disadvantages
+
+Primary has to wait.
+
+```
+Slow Replica
+
+↓
+
+Everything waits
+```
+
+Higher latency
+
+Lower throughput
+
+---
+
+## Use Cases
+
+```
+Banking
+
+Payment Systems
+
+Financial Transactions
+
+Critical Data
+```
+
+---
+
+# 2. Asynchronous Replication
+
+Primary does NOT wait.
+
+Flow
+
+```
+Client
+   |
+Write
+   |
+Primary
+   |
+Immediately
+Success ✅
+   |
+Background Replication
+   |
+Replica Updates Later
+```
+
+---
+
+Example
+
+```
+INSERT User
+
+↓
+
+Primary stores
+
+↓
+
+Client gets Success
+
+↓
+
+2 seconds later
+
+↓
+
+Replica updated
+```
+
+---
+
+## Properties
+
+Eventual Consistency
+
+Eventually every replica becomes identical.
+
+Not immediately.
+
+---
+
+Example
+
+Time = 0
+
+```
+Primary
+
+Name = John
+```
+
+Replica
+
+```
+Name = Jack
+```
+
+Few seconds later
+
+```
+Primary
+
+John
+
+Replica
+
+John
+```
+
+Eventually same.
+
+---
+
+Advantages
+
+- Very fast writes
+- Better throughput
+- Better scalability
+- Used by most web applications
+
+---
+
+Disadvantages
+
+Temporary stale data.
+
+If Primary crashes before replication,
+
+latest data may be lost.
+
+---
+
+Common Use Cases
+
+```
+Instagram
+
+Facebook
+
+YouTube
+
+Twitter
+
+Netflix
+
+Amazon
+```
+
+Almost every large-scale application.
+
+---
+
+# Synchronous vs Asynchronous
+
+| Feature | Synchronous | Asynchronous |
+|----------|------------|--------------|
+| Write Speed | Slow | Fast |
+| Latency | High | Low |
+| Consistency | Strong | Eventual |
+| Data Loss Risk | Very Low | Possible |
+| Read Freshness | Always Latest | Can be Stale |
+| Scalability | Lower | Higher |
+| Used In | Banking | Social Media |
+
+---
+
+# Replication Methods
+
+After deciding **WHEN** to replicate (Sync/Async),
+
+we decide
+
+**WHAT** to replicate.
+
+Three methods.
+
+---
+
+# 1. Statement-Based Replication
+
+Primary sends SQL query itself.
+
+Example
+
+```
+INSERT INTO users
+VALUES (1,'Anubhav');
+```
+
+Replica executes same SQL.
+
+```
+Primary
+
+INSERT ...
+
+↓
+
+Replica executes INSERT
+```
+
+---
+
+Problem
+
+Non-deterministic queries.
+
+Example
+
+```
+INSERT INTO logs
+VALUES(now());
+```
+
+Primary
+
+```
+10:00:00
+```
+
+Replica executes later
+
+```
+10:00:05
+```
+
+Different values.
+
+Data mismatch.
+
+---
+
+Another Example
+
+```
+RAND()
+
+UUID()
+
+CURRENT_TIMESTAMP
+
+NOW()
+```
+
+All can produce different outputs.
+
+---
+
+Advantages
+
+- Small replication logs
+- Easy implementation
+
+---
+
+Disadvantages
+
+- Can create inconsistent data
+- Unsafe for non-deterministic queries
+
+---
+
+# 2. WAL (Write Ahead Log) Replication
+
+Instead of SQL,
+
+copy disk changes.
+
+Primary stores changes inside WAL.
+
+Replica replays those changes.
+
+```
+Application
+
+↓
+
+Primary
+
+↓
+
+WAL
+
+↓
+
+Replica replays WAL
+
+↓
+
+Same data
+```
+
+---
+
+Think Like This
+
+Instead of saying
+
+```
+INSERT User
+```
+
+WAL says
+
+```
+Byte 200
+
+↓
+
+Change
+
+↓
+
+Byte 450
+
+↓
+
+Change
+```
+
+Very low-level.
+
+---
+
+Advantages
+
+- Exact copy
+- Very reliable
+- Very fast
+- No SQL ambiguity
+
+---
+
+Disadvantages
+
+Database Specific.
+
+Example
+
+```
+MySQL WAL
+
+↓
+
+Cannot be directly used by PostgreSQL
+```
+
+Every database engine stores logs differently.
+
+---
+
+Used In
+
+```
+PostgreSQL
+
+MySQL
+
+Oracle
+
+SQL Server
+```
+
+Each has its own internal log format.
+
+---
+
+# 3. Logical Replication (Replication Log)
+
+Modern approach.
+
+Instead of SQL
+
+Instead of Bytes
+
+Replicate actual row changes.
+
+Example
+
+```
+Row ID = 12
+
+Name
+
+John
+
+↓
+
+Updated
+
+↓
+
+Johnny
+```
+
+Replica simply updates Row 12.
+
+```
+Update Row 12
+
+Name = Johnny
+```
+
+No SQL execution.
+
+No byte copying.
+
+Only logical changes.
+
+---
+
+Advantages
+
+- Database Agnostic
+- Easier migration
+- Easier debugging
+- Supports filtering tables
+- Supports cross-database replication
+
+---
+
+Example
+
+```
+MySQL
+
+↓
+
+Logical Changes
+
+↓
+
+Kafka
+
+↓
+
+PostgreSQL
+```
+
+Possible because only logical row events are transferred.
+
+---
+
+# Comparison of Replication Methods
+
+| Method | Copies | Problem | Best For |
+|---------|--------|---------|----------|
+| Statement Based | SQL Queries | Non-deterministic SQL | Small systems |
+| WAL | Physical bytes | DB specific | Same database engine |
+| Logical Replication | Row changes | Slightly larger logs | Modern distributed systems |
+
+---
+
+# Interview Questions ⭐
+
+### Q1. Why use replication?
+
+- High Availability
+- Read Scaling
+- Disaster Recovery
+- Geo Distribution
+- Better Performance
+
+---
+
+### Q2. Difference between Sync and Async Replication?
+
+```
+Sync
+
+Waits for replicas
+
+↓
+
+Strong Consistency
+
+↓
+
+Slower
+
+
+Async
+
+Returns immediately
+
+↓
+
+Eventual Consistency
+
+↓
+
+Faster
+```
+
+---
+
+### Q3. Why is Statement-Based replication risky?
+
+Because queries like
+
+```
+NOW()
+
+RAND()
+
+UUID()
+
+CURRENT_TIMESTAMP
+```
+
+can generate different values on replicas.
+
+---
+
+### Q4. Why is WAL database-specific?
+
+Because every database engine stores physical disk changes in its own proprietary format.
+
+---
+
+### Q5. Why is Logical Replication preferred?
+
+- Row-level changes
+- Easier debugging
+- Cross-database support
+- Flexible
+- Cloud-friendly
+- Most modern distributed architectures
+
+---
+
+# FAANG Interview Summary (30 sec Revision)
+
+```
+Database Replication
+
+Purpose
+│
+├── High Availability
+├── Read Scaling
+├── Disaster Recovery
+└── Geo Replication
+
+Replication Types
+│
+├── Synchronous
+│      ├── Waits
+│      ├── Strong Consistency
+│      └── Slow
+│
+└── Asynchronous
+       ├── Doesn't Wait
+       ├── Eventual Consistency
+       └── Fast
+
+Replication Methods
+│
+├── Statement
+│      └── Copies SQL
+│
+├── WAL
+│      └── Copies Physical Log
+│
+└── Logical Replication
+       └── Copies Row Changes
+```
+
+---
+
+# One-Line Memory Trick 🧠
+
+```
+Replication = Multiple DB Copies
+
+Sync      → Wait → Strong Consistency
+
+Async     → Don't Wait → Eventual Consistency
+
+Statement → SQL Queries
+
+WAL       → Physical Bytes
+
+Logical   → Row Changes (Best)
+```

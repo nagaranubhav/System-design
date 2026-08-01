@@ -1,0 +1,28 @@
+CRDTs (**Conflict-free Replicated Data Types**) ek aisa data structure hai jo distributed systems mein **write conflicts** ko automatic tarike se resolve karta hai. Iska main purpose bina kisi central server ke nodes ko **eventually consistent** banana hai.
+
+### **1. CRDTs kyun use karte hain?**
+Distributed systems mein jab multiple nodes ek saath data update karte hain, toh conflicts aate hain. CRDTs in conflicts ko bina manual intervention ke resolve karte hain.
+
+### **2. CRDT ke do main types:**
+
+*   **Operational CRDTs (03:32):**
+    *   Isme pura state nahi, sirf **operations** (jaise `increment`) send kiye jaate hain.
+    *   **Faida:** Network bandwidth kam use hoti hai ($O(1)$ space).
+    *   **Nuksan:** Isme message delivery order ka dhyan rakhna padta hai (causal consistency). Messages drop ya duplicate nahi hone chahiye.
+
+*   **State-based CRDTs (06:34):**
+    *   Isme pura **current state** dusre nodes ko bheja jaata hai.
+    *   **Merge Function:** Ye function **commutative, associative, aur idempotent** hona chahiye taaki update kisi bhi order mein aaye, result hamesha same rahe.
+    *   Ye **Gossip Protocol** (08:44) ke saath bahut achhe se kaam karta hai.
+
+### **3. Common Examples:**
+
+1.  **Counter (11:20):** Har node apne locally increments/decrements track karta hai. Total count = $\sum$ increments - $\sum$ decrements.
+2.  **Sets (12:47):** Isme `add` aur `remove` ke liye do alag lists rakhte hain. 
+    *   *Problem:* Agar kisi element ko remove kar diya, toh usse wapas add karna mushkil hota hai.
+    *   *Solution:* **Unique tags/identifiers** use karke hum kisi bhi element ko dubara add kar sakte hain (13:59).
+
+### **4. Sequence CRDTs (15:14):**
+Ye thoda complex hota hai aur list/order maintain karne ke liye use hota hai (jaise *Google Docs* mein text editing).
+
+**Key Takeaway:** CRDTs ka goal hai ki systems complex conflict resolution ke bina bhi hamesha sahi aur consistent state par converge karein.

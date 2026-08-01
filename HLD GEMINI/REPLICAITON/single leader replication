@@ -1,0 +1,23 @@
+Single Leader Replication ek database architecture hai jahan saare writes ek hi main node (Leader) par hote hain, aur followers usse data sync karte hain. Yahan iske top-level notes hain:
+
+**1. Basic Mechanism (1:45-2:28):**
+* **Leader:** Saare write requests sirf leader database ke paas jaate hain.
+* **Followers:** Leader apne operations ko asynchronously followers ko bhejta hai.
+* **Read Throughput:** Reads ko leader ya kisi bhi follower se access kiya ja sakta hai, jisse system ki read capacity badh jaati hai.
+
+**2. Key Benefits (2:34-3:18):**
+* **Increased Durability:** Agar ek data center ya node crash ho jaye, toh doosre copies available rehti hain.
+* **Read Scalability:** Jyada followers add karke hum read traffic ko distribute kar sakte hain.
+
+**3. Failure Scenarios (3:35-8:56):**
+* **Follower Failure:** Ye manage karna easy hai (3:37-4:56). Jab follower wapas aata hai, wo replication log ki madad se apne aap ko current state par update kar leta hai.
+* **Leader Failure:** Ye complicated hota hai:
+    * *False Positives:* Network issue ki wajah se follower ko lag sakta hai leader down hai (5:21-6:10).
+    * *Data Loss:* Agar leader crash hone se pehle writes ko followers tak propagate nahi kar paya, toh wo data loss ho sakta hai (6:21-7:48).
+    * *Split Brain:* Agar system mein galti se do leaders ban jayein, toh data corruption aur chaos ho sakta hai (7:51-8:56).
+
+**4. Critical Solution: Distributed Consensus (9:21-10:14):**
+* Data consistency maintain karne ke liye, nodes ko aapas mein agree karna padta hai ki leader kaun hai aur system ki current state kya hai. Iske liye 'Distributed Consensus' ka use hota hai.
+
+**Summary:**
+Single leader replication simple aur efficient hai read-heavy apps ke liye, lekin write-heavy applications ke liye humein doosre replication models ki zaroorat padti hai (11:27-12:08).
