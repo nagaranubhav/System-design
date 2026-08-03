@@ -1,0 +1,21 @@
+Yeh rahe video ke tagde notes! Isme **Leaderless Replication** aur **Quorums** ka concept simple language mein samjhaya gaya hai.
+
+### 1. Leaderless Replication (Review - 0:25)
+*   Isme koi ek leader nahi hota. Writer multiple nodes par write karta hai aur reader multiple nodes se read karta hai.
+*   **Read Repair:** Agar reader ko kisi node par purana data mile, toh woh usse update kar deta hai (0:52).
+*   **Anti-Entropy:** Databases background mein aapas mein sync karte rehte hain taaki data consistency bani rahe (0:57).
+
+### 2. Quorum Kya Hota Hai? (1:26)
+*   N = Total nodes, W = Write nodes, R = Read nodes.
+*   **Condition:** Agar **W + R > N** ho, toh humein hamesha most up-to-date value milti hai (3:17).
+*   Isse systems immediate read-write consistency paane ki koshish karte hain.
+
+### 3. Kya Quorum se 'Strong Consistency' milti hai? (4:00)
+*   **Nahi.** Quorum use karne ke baad bhi kuch problems aati hain:
+    *   **Race Conditions:** Multiple log ek saath likhenge toh database confuse ho sakta hai ki latest version kaunsa hai (4:43).
+    *   **Write Failure:** Agar write request fail ho jaye, toh cluster mein inconsistency aa sakti hai (6:18).
+    *   **Sloppy Quorums:** Agar cluster down ho, toh data kisi aur cluster mein store ho sakta hai, jisse 'Hinted Handoff' ki zaroorat padti hai (8:02).
+
+### Conclusion
+*   Leaderless replication un apps ke liye achha hai jahan thoda bohot data loss chalta hai (jaise social media).
+*   Lekin agar data bahot sensitive hai, toh yeh setup sahi nahi hai. Uske liye **Distributed Consensus** (jo aage ke videos mein aayega) ka use karna padta hai (10:22).

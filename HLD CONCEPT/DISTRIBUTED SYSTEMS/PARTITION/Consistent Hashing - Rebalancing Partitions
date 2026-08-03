@@ -1,0 +1,1188 @@
+# 🔥 Consistent Hashing - The Genius Trick Behind Scalable Distributed Systems 🌍
+
+> **One Line Definition**
+>
+> Consistent Hashing ek aisi technique hai jo data ko multiple servers me distribute karti hai aur ensure karti hai ki **node add/remove hone par minimum data move ho.**
+>
+> 🎯 Goal:
+>
+> **"Cluster grow/shrink ho, par poora data dubara move na karna pade."**
+
+---
+
+# 🤔 Sabse Pehle Problem Samjho
+
+Suppose tumhare paas 3 servers hain.
+
+```
+Server A
+Server B
+Server C
+```
+
+Aur users ka data store karna hai.
+
+Example:
+
+```
+User1
+User2
+User3
+User4
+User5
+```
+
+Question:
+
+```
+Kaunsa user kis server pe jayega?
+```
+
+---
+
+# Naive Solution 😎
+
+Hash function use karo.
+
+```
+server = hash(key) % N
+```
+
+where
+
+```
+N = Number of Servers
+```
+
+Example
+
+```
+N = 3
+```
+
+---
+
+## Example
+
+```
+hash(User1)=10
+
+10 % 3 = 1
+
+→ Server B
+```
+
+---
+
+```
+hash(User2)=25
+
+25 % 3 = 1
+
+→ Server B
+```
+
+---
+
+```
+hash(User3)=35
+
+35 % 3 = 2
+
+→ Server C
+```
+
+Simple.
+
+Sab khush. 😎
+
+---
+
+# Problem Starts When System Grows 😭
+
+Suppose traffic increase ho gaya.
+
+Ab ek naya server add kar diya.
+
+```
+A
+B
+C
+D
+```
+
+Now
+
+```
+N = 4
+```
+
+---
+
+# Dekho Disaster 😱
+
+Pehle
+
+```
+User1
+
+10 % 3 = 1
+
+→ B
+```
+
+Ab
+
+```
+10 % 4 = 2
+
+→ C
+```
+
+Server change 😭
+
+---
+
+User2
+
+```
+25 % 3 = 1
+
+→ B
+```
+
+Ab
+
+```
+25 % 4 = 1
+
+→ B
+```
+
+No change.
+
+---
+
+User3
+
+```
+35 % 3 = 2
+
+→ C
+```
+
+Ab
+
+```
+35 % 4 = 3
+
+→ D
+```
+
+Change.
+
+---
+
+# Problem
+
+Almost saare users naye server pe shift ho sakte hain.
+
+```
+Millions of records
+
+↓
+
+Move
+
+↓
+
+Move
+
+↓
+
+Move
+```
+
+Huge network traffic.
+
+Huge downtime.
+
+Huge pain.
+
+---
+
+# Real Life Example 🚚
+
+Imagine Delhi me 3 warehouses hain.
+
+```
+Warehouse A
+Warehouse B
+Warehouse C
+```
+
+Addresses ko warehouse assign kiya hua hai.
+
+Suddenly
+
+```
+Warehouse D
+```
+
+add kar diya.
+
+Agar tumhara algorithm aisa hai ki
+
+```
+Har address ka warehouse change ho jaye
+```
+
+Toh poore India ka maal dubara shift karna padega.
+
+😂 Company band ho jayegi.
+
+---
+
+# This Is Why Consistent Hashing Was Invented 🚀
+
+Goal:
+
+```
+Server add/remove ho
+
+↓
+
+Minimum data move ho
+```
+
+Bas.
+
+---
+
+# Core Idea 💡
+
+Instead of:
+
+```
+hash(key)%N
+```
+
+Hum banate hain
+
+# Hash Ring
+
+---
+
+# Hash Ring Kya Hai?
+
+Imagine ek circle.
+
+```
+0
+
+|
+
+|
+
+|
+
+|
+
+100
+```
+
+Actually
+
+```
+0 → 2^32 -1
+```
+
+Tak values ho sakti hain.
+
+Visualization ke liye:
+
+```
+
+          0
+
+      /       \
+
+   90           10
+
+   |             |
+
+   80           20
+
+      \       /
+
+          50
+```
+
+Ye hi ring hai.
+
+---
+
+# Step 1: Servers Ko Ring Pe Rakho
+
+Suppose
+
+```
+A = hash(A)=20
+
+B = hash(B)=50
+
+C = hash(C)=80
+```
+
+Ring:
+
+```
+          0
+
+           |
+
+           |
+
+          20(A)
+
+           |
+
+          50(B)
+
+           |
+
+          80(C)
+
+           |
+
+          100
+```
+
+---
+
+# Step 2: Keys Ko Ring Pe Rakho
+
+Example
+
+```
+User1 = 25
+
+User2 = 67
+
+User3 = 88
+```
+
+---
+
+Ring:
+
+```
+20(A)
+
+25(User1)
+
+50(B)
+
+67(User2)
+
+80(C)
+
+88(User3)
+```
+
+---
+
+# Rule ⭐
+
+Every key moves CLOCKWISE
+
+until first server found.
+
+---
+
+# Example
+
+User1
+
+```
+25
+
+Clockwise
+
+↓
+
+50(B)
+```
+
+Store on B.
+
+---
+
+User2
+
+```
+67
+
+Clockwise
+
+↓
+
+80(C)
+```
+
+Store on C.
+
+---
+
+User3
+
+```
+88
+
+Clockwise
+
+↓
+
+Wrap Around
+
+↓
+
+20(A)
+```
+
+Store on A.
+
+---
+
+# Why Clockwise?
+
+Bas convention hai.
+
+Some systems anti-clockwise bhi use kar sakte hain.
+
+Important hai consistency.
+
+---
+
+# Visualization 🎯
+
+```
+             User3(88)
+
+                   |
+
+                   v
+
+                A(20)
+
+              /      \
+
+             /        \
+
+         C(80)      User1(25)
+
+            |            |
+
+            |            |
+
+          User2(67)    B(50)
+```
+
+---
+
+# Biggest Advantage 🚀
+
+Node Add Karke Dekhte Hain
+
+---
+
+Suppose New Server D
+
+Hash:
+
+```
+D = 60
+```
+
+Ring:
+
+```
+20(A)
+
+50(B)
+
+60(D)
+
+80(C)
+```
+
+---
+
+# Kaunsa Data Move Hoga?
+
+Sirf
+
+```
+50 → 60
+```
+
+range ka.
+
+Bas.
+
+---
+
+Example
+
+```
+User55
+
+User57
+
+User59
+```
+
+Ab D ko milenge.
+
+---
+
+Baaki poora data same rahega.
+
+😎
+
+---
+
+# Compare
+
+Modulo Hashing
+
+```
+Server add
+
+↓
+
+Almost ALL data moves
+```
+
+---
+
+Consistent Hashing
+
+```
+Server add
+
+↓
+
+Only nearby data moves
+```
+
+Huge win.
+
+---
+
+# Node Remove Case 🚨
+
+Suppose
+
+```
+Server B
+```
+
+Crash.
+
+---
+
+Before
+
+```
+A(20)
+
+B(50)
+
+C(80)
+```
+
+After
+
+```
+A(20)
+
+C(80)
+```
+
+---
+
+Ab B ke keys kahan jayenge?
+
+Clockwise next node pe.
+
+```
+C
+```
+
+Bas.
+
+---
+
+# Real Life Example 🏢
+
+Shopping Mall
+
+Stores arranged in circle.
+
+Agar ek shop band ho gayi
+
+Customers next wali shop pe chale jaate hain.
+
+Poora mall rearrange nahi hota.
+
+😂
+
+---
+
+# Load Balancing Problem 😭
+
+Ab ek nayi dikkat.
+
+Suppose
+
+```
+A = 10
+
+B = 15
+
+C = 95
+```
+
+Ring:
+
+```
+10(A)
+
+15(B)
+
+95(C)
+```
+
+---
+
+Observe
+
+```
+15 → 95
+```
+
+Huge range.
+
+C overloaded.
+
+---
+
+A aur B chill kar rahe hain 😂
+
+---
+
+# Virtual Nodes Enter The Chat 🦸
+
+Industry ka real solution.
+
+---
+
+# Virtual Nodes Kya Hain?
+
+Ek physical server ko ring pe multiple times place karo.
+
+Example
+
+Physical Node:
+
+```
+A
+```
+
+Virtual Nodes:
+
+```
+A1
+A2
+A3
+A4
+```
+
+---
+
+Ring:
+
+```
+A1
+
+B1
+
+A2
+
+C1
+
+A3
+
+B2
+
+A4
+```
+
+---
+
+Ab load evenly distribute hoga.
+
+---
+
+# Real Life Example 🍕
+
+Suppose pizza delivery boy A bahut fast hai.
+
+Toh usko multiple zones de do.
+
+```
+Zone1 → A
+
+Zone2 → A
+
+Zone3 → A
+```
+
+Exactly same.
+
+---
+
+# K Factor
+
+Industry term.
+
+```
+K = Number of Virtual Nodes
+```
+
+Example
+
+```
+1 Physical Node
+
+↓
+
+100 Virtual Nodes
+```
+
+---
+
+# Why Virtual Nodes So Powerful?
+
+Node failure.
+
+Before:
+
+```
+A owns huge range
+```
+
+After Vnodes:
+
+```
+Load spread everywhere
+```
+
+Failure impact smaller.
+
+---
+
+# Visualization
+
+Without Vnodes
+
+```
+A -------------
+
+B ----
+
+C --------
+```
+
+Uneven.
+
+---
+
+With Vnodes
+
+```
+A-B-C-A-C-B-A-B-C
+```
+
+Balanced.
+
+---
+
+# Real Systems Using Consistent Hashing 🌍
+
+### Apache Cassandra
+
+Uses consistent hashing heavily.
+
+---
+
+### DynamoDB
+
+Inspired from Amazon Dynamo.
+
+---
+
+### Riak
+
+Uses ring architecture.
+
+---
+
+### Memcached Clients
+
+Cache distribution.
+
+---
+
+### Redis Cluster (similar concepts)
+
+Partitioning and slot based approach.
+
+---
+
+# Alternative Approach: Fixed Partitions 📦
+
+Instead of placing servers directly on ring.
+
+Create fixed partitions.
+
+Example
+
+```
+12 partitions
+```
+
+```
+P1
+P2
+P3
+...
+P12
+```
+
+---
+
+Server Ownership
+
+```
+A -> P1,P2,P3,P4
+
+B -> P5,P6,P7,P8
+
+C -> P9,P10,P11,P12
+```
+
+---
+
+# Node Add
+
+Add D.
+
+Just move few partitions.
+
+```
+A -> P1,P2,P3
+
+B -> P4,P5,P6
+
+C -> P7,P8,P9
+
+D -> P10,P11,P12
+```
+
+Simple.
+
+---
+
+# Pros
+
+✅ Easy implementation
+
+✅ Easy monitoring
+
+✅ Easy movement
+
+---
+
+# Cons
+
+Partition count choose karna difficult.
+
+---
+
+Too Small
+
+```
+Storage limit hit
+```
+
+---
+
+Too Large
+
+```
+Metadata overhead
+```
+
+---
+
+# Dynamic Partitioning ⚡
+
+Database khud decide kare.
+
+Example
+
+```
+Node overloaded
+```
+
+Database:
+
+```
+Split partition
+```
+
+Automatically.
+
+---
+
+# Sounds Amazing?
+
+Not always 😅
+
+---
+
+# Problem
+
+Suppose temporary traffic spike.
+
+System thinks
+
+```
+Need rebalance
+```
+
+Starts moving TBs of data.
+
+Traffic normal ho gaya.
+
+Now rebalance waste.
+
+---
+
+# Another Challenge
+
+How to know node is actually dead?
+
+Suppose network issue.
+
+Node alive hai.
+
+But dikha dead.
+
+Now system starts moving data.
+
+Bad decision.
+
+---
+
+# This Leads To
+
+Distributed Consensus Problems
+
+---
+
+Systems use:
+
+```
+Raft
+
+Paxos
+
+ZooKeeper
+
+etcd
+```
+
+to agree.
+
+---
+
+# Interview Gold Question 🎤
+
+## Why Not Modulo Hashing?
+
+Because adding/removing nodes causes massive rehashing.
+
+---
+
+## Why Consistent Hashing?
+
+Minimizes data movement.
+
+---
+
+## Why Virtual Nodes?
+
+Better load balancing.
+
+---
+
+## Why Clockwise Lookup?
+
+Simple deterministic ownership.
+
+---
+
+## What Happens On Node Failure?
+
+Keys shift to next clockwise node.
+
+---
+
+## Biggest Benefit?
+
+Scalability with minimal data migration.
+
+---
+
+# Complexity Intuition
+
+Finding node:
+
+```
+Binary Search
+
+O(log N)
+```
+
+if ring sorted.
+
+---
+
+Data Movement
+
+Modulo Hashing:
+
+```
+≈ Almost all keys
+```
+
+---
+
+Consistent Hashing:
+
+```
+≈ Only neighboring range
+```
+
+Huge difference.
+
+---
+
+# Cheat Sheet 📌
+
+```
+Problem
+=======
+Modulo hashing causes huge rehashing.
+
+Formula
+=======
+hash(key)%N
+
+Issue
+=====
+N changes => almost all keys move.
+
+Solution
+========
+Consistent Hashing
+
+Idea
+====
+Place nodes and keys on ring.
+
+Rule
+====
+Move clockwise.
+First node owns key.
+
+Node Add
+========
+Only nearby keys move.
+
+Node Remove
+===========
+Keys move to next node.
+
+Virtual Nodes
+=============
+Multiple ring positions
+for same physical node.
+
+Benefits
+========
+✔ Scalable
+✔ Minimal migration
+✔ Better balancing
+✔ Easy node addition/removal
+
+Used In
+=======
+Cassandra
+Dynamo
+Riak
+Memcached
+
+Alternatives
+============
+Fixed Partitions
+Dynamic Partitioning
+```
+
+---
+
+# Final Intuition 🎯
+
+Imagine ek circular road hai 🛣️
+
+Aur us road par delivery hubs lage hue hain.
+
+```
+Hub A
+
+Hub B
+
+Hub C
+```
+
+Har new parcel clockwise nearest hub ko assign hota hai.
+
+Agar ek naya hub khul jaye:
+
+```
+Hub D
+```
+
+Toh poore city ke parcels redistribute nahi hote.
+
+Sirf us hub ke aas-paas wale area ke parcels usko milte hain.
+
+💡 **Yahi Consistent Hashing ka magic hai:**
+
+> **"Cluster change ho sakta hai, par poora data move nahi hoga."**
+
+🚀 Yahi reason hai ki Cassandra, Dynamo, Riak jaise distributed databases scale kar paate hain.
+````

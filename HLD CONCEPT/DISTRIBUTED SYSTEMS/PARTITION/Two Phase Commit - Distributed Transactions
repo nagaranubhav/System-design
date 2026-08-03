@@ -1,0 +1,1355 @@
+# 🌍 Two-Phase Commit (2PC) - The Transaction That Says "Sab Commit Karo Ya Sab Cancel!" 🤝
+
+> **One Line Definition**
+>
+> **Two-Phase Commit (2PC)** ek distributed transaction protocol hai jo ensure karta hai ki agar transaction multiple databases/partitions par chal raha hai to **ya to sab commit hoga ya fir sab rollback hoga.**
+>
+> 🎯 **All or Nothing.**
+>
+> Atomicity across multiple machines.
+
+---
+
+# 🤔 Pehle Problem Samjho
+
+Imagine tumhare paas sirf **1 database** hai.
+
+User ₹100 transfer karta hai.
+
+```
+A -= 100
+B += 100
+```
+
+Simple.
+
+Database ACID maintain kar lega.
+
+---
+
+## Lekin Distributed System me?
+
+Suppose...
+
+```
+User A -> Database 1
+User B -> Database 2
+```
+
+Ab transfer karna hai.
+
+```
+DB1:
+A = A -100
+
+DB2:
+B = B +100
+```
+
+Question👇
+
+Agar DB1 ne commit kar diya...
+
+Aur DB2 crash ho gaya...
+
+To?
+
+```
+A ke account se paise chale gaye ❌
+
+B ko paise mile hi nahi ❌
+```
+
+Money Gayab 😭
+
+Ye Atomicity toot gayi.
+
+Isi problem ko solve karta hai...
+
+# ⭐ Two Phase Commit
+
+---
+
+# Real Life Example 🍕
+
+Socho tum aur tumhare 4 dost pizza order kar rahe ho.
+
+Condition hai...
+
+```
+Sab paisa denge
+Tabhi order place hoga.
+```
+
+Ab coordinator (tum)
+
+sabse poochte ho
+
+```
+Bhai dega?
+
+Friend1 -> Yes
+
+Friend2 -> Yes
+
+Friend3 -> Yes
+
+Friend4 -> Yes
+```
+
+Sab ready hain.
+
+Ab tum bolte ho
+
+```
+Order Confirm!!
+```
+
+Sab payment kar dete hain.
+
+---
+
+Lekin...
+
+Friend4 bolta
+
+```
+Bhai mere paas paise nahi hain.
+```
+
+Ab kya karoge?
+
+```
+Order cancel.
+```
+
+Koi payment nahi karega.
+
+Exactly yahi 2PC karta hai.
+
+---
+
+# Another Real Life Example 🏦
+
+Bank Transfer
+
+```
+Delhi Server
+↓
+
+Withdraw ₹1000
+
+Mumbai Server
+↓
+
+Deposit ₹1000
+```
+
+Agar Delhi successful
+Mumbai fail
+
+To bank barbaad 😂
+
+Isliye pehle dono se poocha jata hai
+
+```
+Ready?
+```
+
+Dono bolte hain
+
+```
+Ready
+```
+
+Fir hi
+
+```
+Commit
+```
+
+---
+
+# Another Example ✈️ Flight Booking
+
+Suppose booking me 3 services involved hain
+
+```
+Seat Service
+
+↓
+
+Payment Service
+
+↓
+
+Meal Service
+```
+
+Booking tabhi successful hogi jab
+
+```
+Seat Reserved
+
+AND
+
+Payment Success
+
+AND
+
+Meal Reserved
+```
+
+Agar meal fail ho gaya
+
+To seat bhi rollback
+
+Payment bhi rollback
+
+---
+
+# Another Example 🛒 Amazon Order
+
+Order place karte hi
+
+3 systems involve hote hain
+
+```
+Inventory
+
+↓
+
+Payment
+
+↓
+
+Order Service
+```
+
+Inventory
+
+```
+Item Reserved
+```
+
+Payment
+
+```
+Money Reserved
+```
+
+Order
+
+```
+Ready
+```
+
+Sab ready?
+
+YES
+
+Then
+
+```
+Commit
+```
+
+Otherwise
+
+```
+Rollback Everything
+```
+
+---
+
+# Why Name is Two Phase Commit?
+
+Because ye sirf 2 phases me kaam karta hai.
+
+```
+Phase 1
+
+↓
+
+Prepare
+
+↓
+
+Phase 2
+
+↓
+
+Commit
+```
+
+Bas.
+
+---
+
+# System Components
+
+Humare paas
+
+```
+Coordinator
+```
+
+Aur
+
+```
+Participants
+```
+
+Example
+
+```
+          Coordinator
+
+         /     |      \
+
+      DB1     DB2     DB3
+```
+
+Coordinator boss hai.
+
+Participants workers.
+
+Coordinator decision leta hai.
+
+Participants follow karte hain.
+
+---
+
+# Phase 1 — Prepare Phase 🟡
+
+Is phase me
+
+Coordinator kisi ko commit nahi bolta.
+
+Bas poochta hai
+
+```
+Ready ho?
+```
+
+Message
+
+```
+PREPARE
+```
+
+---
+
+Participants kya karte hain?
+
+Suppose
+
+```
+Account A -=100
+```
+
+Participant
+
+### Step 1
+
+Validation karta hai
+
+```
+Enough Balance?
+
+Constraints?
+
+Disk Available?
+
+Can I Commit?
+```
+
+---
+
+### Step 2
+
+Write ko memory me prepare karta hai.
+
+Abhi permanently save nahi karta.
+
+---
+
+### Step 3
+
+Required rows lock kar leta hai.
+
+Example
+
+```
+Account A Row
+
+LOCKED
+```
+
+Taaki koi aur modify na kare.
+
+---
+
+### Step 4
+
+Response bhejta hai
+
+```
+YES
+
+or
+
+NO
+```
+
+---
+
+Diagram
+
+```
+Coordinator
+
+↓
+
+Prepare?
+
+↓
+
+DB1 → YES
+
+↓
+
+DB2 → YES
+
+↓
+
+DB3 → YES
+```
+
+Agar ek bhi NO
+
+Game Over
+
+---
+
+# Prepare Phase Timeline
+
+```
+Coordinator
+
+↓
+
+Prepare
+
+↓
+
+DB1
+
+Lock Row
+
+↓
+
+YES
+
+-------------------
+
+DB2
+
+Lock Row
+
+↓
+
+YES
+
+-------------------
+
+DB3
+
+Lock Row
+
+↓
+
+YES
+```
+
+Ab sab wait kar rahe hain.
+
+---
+
+# Important Point ⭐
+
+Prepare phase ke baad
+
+Data commit nahi hua hai.
+
+Sirf
+
+```
+Ready
+```
+
+bola gaya hai.
+
+---
+
+# Why Lock Required?
+
+Imagine
+
+```
+Balance =1000
+```
+
+Transfer
+
+```
+-500
+```
+
+Abhi prepare hua hai.
+
+Commit nahi hua.
+
+Tabhi
+
+Dusra user bhi
+
+```
+-700
+```
+
+kar de.
+
+Ab kya hoga?
+
+Chaos.
+
+Isliye lock.
+
+---
+
+# Phase 2 — Commit Phase 🟢
+
+Coordinator check karta hai
+
+```
+Sab YES?
+```
+
+YES
+
+Then
+
+```
+COMMIT
+```
+
+message bhejta hai.
+
+---
+
+Participants
+
+```
+Actually write data
+
+↓
+
+Release Locks
+
+↓
+
+Done
+```
+
+---
+
+Diagram
+
+```
+Coordinator
+
+↓
+
+Commit
+
+↓
+
+DB1 Commit
+
+↓
+
+DB2 Commit
+
+↓
+
+DB3 Commit
+```
+
+---
+
+# Agar Kisi Ne NO Bola?
+
+Example
+
+```
+DB1 YES
+
+DB2 YES
+
+DB3 NO
+```
+
+Coordinator
+
+```
+ROLLBACK
+```
+
+sabko bhej deta hai.
+
+---
+
+Result
+
+```
+DB1 Undo
+
+DB2 Undo
+
+DB3 Nothing
+```
+
+---
+
+Atomicity maintained.
+
+---
+
+# Complete Flow 🎯
+
+```
+            START
+
+              |
+
+              V
+
+       Coordinator
+
+              |
+
+      PREPARE REQUEST
+
+      /      |       \
+
+    DB1     DB2      DB3
+
+     |        |        |
+
+    YES      YES      YES
+
+      \      |      /
+
+       Coordinator
+
+            |
+
+        COMMIT
+
+      /     |      \
+
+    DB1    DB2     DB3
+
+ Commit  Commit   Commit
+
+      \     |      /
+
+         SUCCESS
+```
+
+---
+
+# What if Someone Says NO?
+
+```
+Prepare
+
+↓
+
+DB1 YES
+
+↓
+
+DB2 NO
+
+↓
+
+DB3 YES
+```
+
+Coordinator
+
+```
+Rollback
+```
+
+Everyone returns to old state.
+
+---
+
+# Internal Logs (Very Important)
+
+Coordinator log
+
+```
+Transaction Started
+
+↓
+
+Everyone Ready
+
+↓
+
+Commit Decision
+```
+
+Participants log
+
+```
+Prepared
+
+↓
+
+Committed
+```
+
+Ye logs recovery ke liye use hote hain.
+
+---
+
+# Crash Scenario 1 🚨
+
+## Coordinator crashes before Commit
+
+Example
+
+```
+Prepare Done
+
+↓
+
+All YES
+
+↓
+
+Coordinator Crash
+```
+
+Participants
+
+```
+Rows Locked
+
+Waiting...
+
+Waiting...
+
+Waiting...
+```
+
+Problem?
+
+Nobody knows
+
+```
+Commit?
+
+Rollback?
+```
+
+Ye state kehlati hai
+
+# Blocking State
+
+Sab wait karte rehte hain.
+
+---
+
+# Real Life Example
+
+Teacher exam copies collect kar leta hai.
+
+Bolta hai
+
+```
+Wait
+
+Result announce karta hu.
+```
+
+Teacher behosh ho gaya 😂
+
+Ab?
+
+Students
+
+```
+Pass?
+
+Fail?
+
+Recheck?
+
+```
+
+Nobody knows.
+
+Exactly same.
+
+---
+
+# Crash Scenario 2
+
+Coordinator commits
+
+```
+Commit Sent
+```
+
+DB1
+
+Committed
+
+DB2
+
+Committed
+
+DB3
+
+Crash
+
+Ab?
+
+Coordinator baar baar
+
+```
+Commit
+
+Commit
+
+Commit
+
+Commit
+```
+
+bhejega.
+
+Jab tak DB3 online na aa jaye.
+
+---
+
+# Why?
+
+Because
+
+Decision already ho chuka.
+
+Rollback allowed nahi.
+
+---
+
+# Crash Scenario 3
+
+Participant crashes before Prepare reply
+
+Coordinator
+
+```
+Timeout
+```
+
+Treat as
+
+```
+NO
+```
+
+Rollback.
+
+---
+
+# Biggest Problems of 2PC 😭
+
+---
+
+# 1. Single Point Of Failure
+
+Coordinator mar gaya
+
+System ruk gaya.
+
+```
+Coordinator
+
+❌
+
+↓
+
+Everyone Waiting
+```
+
+---
+
+# 2. Blocking Protocol
+
+Participants
+
+```
+Rows Locked
+```
+
+Aur wait karte rehte hain.
+
+Meanwhile
+
+Dusri transactions
+
+```
+Blocked
+```
+
+---
+
+Real Example
+
+Restaurant
+
+Ek table reserve hai.
+
+Customer nahi aa raha.
+
+Restaurant wait hi karta rahega.
+
+Dusra customer baith nahi sakta.
+
+---
+
+# 3. Lock Contention
+
+Suppose
+
+```
+Balance Row Locked
+```
+
+Dusra transaction
+
+```
+Withdraw
+```
+
+Cannot proceed.
+
+Sab line me khade.
+
+---
+
+# 4. Poor Performance
+
+Normal transaction
+
+```
+1 Network Call
+```
+
+2PC
+
+```
+Prepare
+
+↓
+
+Reply
+
+↓
+
+Commit
+
+↓
+
+Ack
+```
+
+Bahut network trips.
+
+Latency increase.
+
+---
+
+# 5. Recovery Complex
+
+Crash hua.
+
+Logs recover karo.
+
+Decision recover karo.
+
+Coordinator recover karo.
+
+Sab synchronize karo.
+
+Complex.
+
+---
+
+# Network Messages
+
+Without 2PC
+
+```
+Client
+
+↓
+
+Database
+```
+
+With 2PC
+
+```
+Coordinator
+
+↓
+
+Prepare
+
+↓
+
+Participants
+
+↓
+
+YES
+
+↓
+
+Coordinator
+
+↓
+
+Commit
+
+↓
+
+Participants
+
+↓
+
+ACK
+```
+
+Bahut zyada messaging.
+
+---
+
+# State Machine
+
+Coordinator
+
+```
+START
+
+↓
+
+PREPARE
+
+↓
+
+WAIT
+
+↓
+
+COMMIT
+
+or
+
+ROLLBACK
+
+↓
+
+END
+```
+
+Participant
+
+```
+START
+
+↓
+
+PREPARED
+
+↓
+
+WAIT
+
+↓
+
+COMMIT
+
+or
+
+ROLLBACK
+```
+
+---
+
+# Advantages ✅
+
+✔ Strong Atomicity
+
+✔ ACID across databases
+
+✔ No partial commit
+
+✔ Data consistency maintained
+
+✔ Widely understood protocol
+
+---
+
+# Disadvantages ❌
+
+❌ Slow
+
+❌ Blocking
+
+❌ Locks held for long time
+
+❌ Coordinator failure dangerous
+
+❌ High latency
+
+❌ Doesn't scale well
+
+---
+
+# Why Modern Systems Avoid 2PC?
+
+Google
+
+Amazon
+
+Netflix
+
+Uber
+
+Meta
+
+Mostly avoid cross-partition transactions.
+
+Instead they use
+
+```
+Saga Pattern
+
+Outbox Pattern
+
+Event Driven Architecture
+
+Compensation Transactions
+
+Eventual Consistency
+```
+
+Reason
+
+Scalability > Strict Consistency (for many workloads)
+
+---
+
+# Interview Questions 🎤
+
+## Q1. Why not simply commit one database first?
+
+Because agar second fail ho gaya
+
+Atomicity break ho jayegi.
+
+---
+
+## Q2. Why prepare phase?
+
+Taaki sab participants guarantee de saken
+
+```
+I CAN COMMIT
+```
+
+before actual commit.
+
+---
+
+## Q3. Why lock rows?
+
+Taaki koi dusra transaction beech me data modify na kare.
+
+---
+
+## Q4. Why is 2PC blocking?
+
+Participants prepare ke baad coordinator ke decision ka wait karte hain aur locks hold karte rehte hain.
+
+---
+
+## Q5. Why coordinator log maintain karta hai?
+
+Crash recovery ke liye.
+
+---
+
+## Q6. Why isn't 2PC highly scalable?
+
+- Extra network round trips
+- Long-lived locks
+- Coordinator bottleneck
+- Blocking on failures
+
+---
+
+# Memory Trick 🧠
+
+```
+2PC
+
+↓
+
+Phase 1
+
+"Can You Commit?"
+
+↓
+
+YES?
+
+↓
+
+Phase 2
+
+"Now Commit!"
+```
+
+Remember as:
+
+> **Ask First → Decide Later**
+
+---
+
+# Cheat Sheet 📌
+
+```
+Goal
+=====
+Atomic transaction across multiple databases.
+
+Actors
+======
+Coordinator
+Participants
+
+Phase 1
+=======
+Prepare
+Lock rows
+Validate
+Reply YES/NO
+
+Phase 2
+=======
+If all YES
+→ Commit
+
+Else
+→ Rollback
+
+Pros
+====
+✔ Atomic
+✔ Consistent
+
+Cons
+====
+❌ Blocking
+❌ Slow
+❌ Coordinator failure
+❌ Long locks
+❌ Poor scalability
+
+Modern Alternatives
+===================
+Saga Pattern
+Outbox Pattern
+CDC
+Event-driven architecture
+Compensation Transactions
+```
+
+---
+
+# Final Intuition 🎯
+
+Imagine shaadi me 5 dost milke gift lene wale hain 🎁
+
+Rule hai:
+
+```
+Sab paise denge
+
+↓
+
+Tabhi gift kharidega.
+```
+
+Coordinator = Tum
+
+Prepare Phase:
+
+```
+"Sabke paas paise hain?"
+
+↓
+
+YES
+
+YES
+
+YES
+
+YES
+
+YES
+```
+
+Commit Phase:
+
+```
+"Ab sab UPI karo!"
+```
+
+Agar ek bhi dost bol de:
+
+```
+Bhai salary nahi aayi 😭
+```
+
+To:
+
+```
+Gift Cancel.
+
+Koi payment nahi karega.
+```
+
+💡 **Bas yehi hai Two-Phase Commit ka poora essence:**
+> **"Pehle sabse commitment lo, phir sabko ek saath commit karao. Agar ek bhi fail ho, sab rollback."**

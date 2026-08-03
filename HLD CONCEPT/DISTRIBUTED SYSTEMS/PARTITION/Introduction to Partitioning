@@ -1,0 +1,1325 @@
+# 🚀 Database Partitioning (Sharding)
+
+> **Goal:** Jab database itna bada ho jaye ki **ek single machine usse handle na kar sake**, tab data ko multiple machines mein divide (partition/shard) kiya jata hai.
+
+> 🔥 **Interview Line:** *Replication copies the same data for availability, while Partitioning (Sharding) divides the data for scalability.*
+
+---
+
+# 📌 Pehle Problem Samajhte Hain
+
+Suppose tumhare paas ek database hai.
+
+```
+Users Table
+
+100 GB
+```
+
+Machine ki capacity
+
+```
+64 GB RAM
+```
+
+Question
+
+```
+Database kaha store karoge? 🤔
+```
+
+Impossible.
+
+---
+
+## Replication se Problem Solve Hogi?
+
+Suppose
+
+```
+100 GB Database
+
+↓
+
+Replica 1
+
+100 GB
+
+↓
+
+Replica 2
+
+100 GB
+```
+
+Har machine pe
+
+Still
+
+```
+100 GB
+```
+
+Problem solve hui?
+
+❌ Nahi.
+
+Replication sirf copies banata hai.
+
+Database ka size kam nahi karta.
+
+---
+
+## Solution ✅
+
+Database ko divide kar do.
+
+```
+100 GB
+
+↓
+
+25 GB
+
+25 GB
+
+25 GB
+
+25 GB
+```
+
+Ab
+
+Har machine
+
+Sirf apna part store karegi.
+
+Isi process ko bolte hain
+
+> **Database Partitioning (Sharding)**
+
+---
+
+# 🤔 What is Partitioning (Sharding)?
+
+Simple Definition
+
+> **Large database ko multiple smaller pieces (partitions/shards) mein divide karna taaki har machine sirf apna data store kare.**
+
+---
+
+## Visualization
+
+Without Partitioning
+
+```
+               Database
+
+             100 Million Users
+
+                    │
+
+               One Server 😭
+```
+
+---
+
+With Partitioning
+
+```
+                Database
+
+       100 Million Users
+
+              │
+
+    ┌─────────┼─────────┐
+
+    │         │         │
+
+Shard1     Shard2     Shard3
+
+Users      Users      Users
+
+1-33M      34-66M     67-100M
+```
+
+Load bhi divide
+
+Storage bhi divide.
+
+---
+
+# 🌍 Real Life Example
+
+Imagine ek school library.
+
+```
+10 Lakh Books
+```
+
+Sab books ek room mein.
+
+Book dhoondhne mein
+
+Bahut time lagega.
+
+---
+
+Solution
+
+Books divide kar do.
+
+```
+Room 1
+
+A-F
+
+------------
+
+Room 2
+
+G-M
+
+------------
+
+Room 3
+
+N-Z
+```
+
+Ab search fast.
+
+Exactly
+
+Partitioning.
+
+---
+
+# Why Partitioning?
+
+```
+Huge Data
+
+↓
+
+Single Server Can't Handle
+
+↓
+
+Partition
+
+↓
+
+Multiple Servers
+
+↓
+
+Scalability 🚀
+```
+
+---
+
+# Types of Partitioning
+
+```
+Partitioning
+
+│
+
+├── Range Based
+
+└── Hash Based
+```
+
+---
+
+# 🚀 1. Range-Based Partitioning
+
+Idea
+
+Data ko
+
+**Continuous Ranges**
+
+mein divide karo.
+
+---
+
+## Example
+
+Suppose
+
+Student Names
+
+```
+A
+
+↓
+
+Z
+```
+
+Partitions
+
+```
+Shard 1
+
+A - F
+
+------------
+
+Shard 2
+
+G - M
+
+------------
+
+Shard 3
+
+N - Z
+```
+
+---
+
+## Visualization
+
+```
+A B C D E F
+
+↓
+
+Shard 1
+
+---------------
+
+G H I J K L M
+
+↓
+
+Shard 2
+
+---------------
+
+N O P Q R S T U V W X Y Z
+
+↓
+
+Shard 3
+```
+
+---
+
+# Real Life Example 📚
+
+Dictionary
+
+```
+A-F
+
+Shelf 1
+
+------------
+
+G-M
+
+Shelf 2
+
+------------
+
+N-Z
+
+Shelf 3
+```
+
+Exactly same.
+
+---
+
+# Advantages ✅
+
+## 1. Excellent Range Queries
+
+Suppose query
+
+```
+Names
+
+Between
+
+K
+
+and
+
+M
+```
+
+Database directly
+
+```
+Shard 2
+```
+
+pe jayega.
+
+Baaki shards ignore.
+
+---
+
+## Example
+
+SQL
+
+```sql
+SELECT *
+
+FROM Users
+
+WHERE Name BETWEEN 'K' AND 'M';
+```
+
+Only
+
+Shard 2.
+
+Fast.
+
+---
+
+## 2. Data Locality
+
+Related data
+
+Ek hi shard mein hota hai.
+
+Example
+
+```
+January Orders
+
+↓
+
+Shard 1
+```
+
+Easy analytics.
+
+---
+
+# Disadvantages ❌
+
+## Hot Spots
+
+Sabse bada drawback.
+
+---
+
+Suppose
+
+Instagram
+
+Most users
+
+Name starts with
+
+```
+S
+```
+
+Range
+
+```
+N-Z
+```
+
+Shard pe
+
+Bahut load.
+
+```
+Shard 1
+
+10K Users
+
+------------
+
+Shard 2
+
+12K Users
+
+------------
+
+Shard 3
+
+5 Million Users 😭
+```
+
+Load imbalance.
+
+Isi ko bolte hain
+
+> **Hot Spot**
+
+---
+
+# Real Life Example
+
+Mall mein
+
+10 billing counters hain.
+
+Lekin
+
+Sab log
+
+Sirf Counter 1 pe khade hain.
+
+Baaki counters empty.
+
+Exactly
+
+Hot Spot.
+
+---
+
+# 🚀 2. Hash-Based Partitioning
+
+Range ki jagah
+
+Hash Function decide karega
+
+Data kaha jayega.
+
+---
+
+## Example
+
+```
+hash(UserID)
+
+↓
+
+Shard Number
+```
+
+---
+
+Suppose
+
+```
+hash(101)
+
+↓
+
+1
+
+↓
+
+Shard1
+```
+
+---
+
+```
+hash(220)
+
+↓
+
+3
+
+↓
+
+Shard3
+```
+
+---
+
+## Visualization
+
+```
+UserID
+
+↓
+
+Hash()
+
+↓
+
+Shard
+```
+
+Simple.
+
+---
+
+# Example
+
+```
+User 101
+
+↓
+
+Hash
+
+↓
+
+Shard2
+
+------------
+
+User 102
+
+↓
+
+Hash
+
+↓
+
+Shard1
+
+------------
+
+User 103
+
+↓
+
+Hash
+
+↓
+
+Shard3
+```
+
+Random distribution.
+
+---
+
+# Real Life Example 🎲
+
+Suppose
+
+Teacher randomly
+
+Students ko
+
+Different classrooms assign kare.
+
+```
+Roll No
+
+↓
+
+Random Function
+
+↓
+
+Room
+```
+
+Almost equal students.
+
+---
+
+# Advantages ✅
+
+## Uniform Distribution
+
+Har shard pe
+
+Almost equal data.
+
+```
+Shard1
+
+2 Million
+
+------------
+
+Shard2
+
+2.1 Million
+
+------------
+
+Shard3
+
+1.9 Million
+```
+
+No Hot Spots.
+
+---
+
+## Better Load Balancing
+
+Sab servers
+
+Almost equally busy.
+
+---
+
+# Disadvantages ❌
+
+## Range Queries become difficult
+
+Suppose
+
+```
+Age
+
+18-25
+```
+
+Hashing ke baad
+
+18
+
+19
+
+20
+
+21
+
+Different shards mein chale gaye.
+
+Ab
+
+Har shard
+
+Check karna padega.
+
+---
+
+## Example
+
+```
+SELECT *
+
+WHERE Age
+
+BETWEEN 18 AND 25
+```
+
+Need
+
+```
+Shard1
+
+Shard2
+
+Shard3
+
+Shard4
+```
+
+Slow.
+
+---
+
+# Range vs Hash Partitioning
+
+| Feature | Range | Hash |
+|----------|--------|------|
+| Distribution | Uneven | Uniform |
+| Range Query | Excellent | Poor |
+| Hot Spots | Possible | Rare |
+| Load Balancing | Weak | Strong |
+| Data Locality | Excellent | Poor |
+
+---
+
+# 🎯 Secondary Indexes
+
+Suppose
+
+Primary Key
+
+```
+UserID
+```
+
+Easy search.
+
+---
+
+Question
+
+Search by
+
+```
+Height
+
+City
+
+Age
+
+Salary
+```
+
+How?
+
+Need
+
+> **Secondary Index**
+
+---
+
+# Real Life Example
+
+Dictionary
+
+Primary
+
+```
+Words
+
+Alphabetically
+```
+
+But suppose
+
+Find
+
+```
+Longest Word
+```
+
+Need another index.
+
+---
+
+# Types of Secondary Index
+
+```
+Secondary Index
+
+│
+
+├── Local Secondary Index
+
+└── Global Secondary Index
+```
+
+---
+
+# 📍 Local Secondary Index
+
+Har shard
+
+Apna khud ka index maintain karega.
+
+---
+
+## Visualization
+
+```
+Shard1
+
+↓
+
+Local Index1
+
+------------
+
+Shard2
+
+↓
+
+Local Index2
+
+------------
+
+Shard3
+
+↓
+
+Local Index3
+```
+
+Independent.
+
+---
+
+# Example
+
+Search
+
+```
+Height > 7 ft
+```
+
+Database
+
+```
+Query
+
+↓
+
+Shard1
+
+↓
+
+Shard2
+
+↓
+
+Shard3
+
+↓
+
+Merge Results
+```
+
+Sab shards check honge.
+
+---
+
+# Real Life Example
+
+Imagine
+
+3 libraries.
+
+Har library
+
+Apni book list maintain karti hai.
+
+Book dhoondhne ke liye
+
+Sab libraries call karni padengi.
+
+---
+
+# Advantages ✅
+
+## Writes Fast
+
+New user
+
+```
+Insert
+
+↓
+
+Update Local Index Only
+```
+
+Simple.
+
+No network overhead.
+
+---
+
+# Disadvantages ❌
+
+## Reads Slow
+
+Need to query
+
+```
+Every Shard
+```
+
+Fir results combine.
+
+---
+
+# 📍 Global Secondary Index
+
+Ek alag
+
+Dedicated Index Cluster.
+
+---
+
+## Visualization
+
+```
+Primary Data
+
+↓
+
+Shard1
+
+Shard2
+
+Shard3
+
+↓
+
+Global Index Cluster
+```
+
+Primary data alag.
+
+Index alag.
+
+---
+
+## Example
+
+Search
+
+```
+Height > 7 ft
+```
+
+Instead of
+
+All shards
+
+Database directly
+
+```
+Global Index
+
+↓
+
+Relevant Shard
+
+↓
+
+Done
+```
+
+Fast.
+
+---
+
+# Real Life Example
+
+Imagine
+
+City mein
+
+Ek Central Library Catalog hai.
+
+Tum pehle catalog check karte ho.
+
+Fir
+
+Sirf relevant library jaate ho.
+
+---
+
+# Advantages ✅
+
+## Very Fast Reads
+
+Need only
+
+Relevant Index.
+
+---
+
+## Efficient Search
+
+Millions of records
+
+Fast lookup.
+
+---
+
+# Disadvantages ❌
+
+## Writes become complex
+
+Suppose
+
+User Height update hui.
+
+Ab update karna padega
+
+```
+Primary Shard
+
++
+
+Global Index
+```
+
+Dono sync hone chahiye.
+
+---
+
+# Why Distributed Transactions?
+
+Suppose
+
+Primary update
+
+Success.
+
+```
+Height
+
+190 cm
+```
+
+Lekin
+
+Global Index
+
+Update fail.
+
+```
+Still
+
+180 cm
+```
+
+Ab
+
+Search galat answer dega.
+
+Isliye
+
+Need
+
+> **Distributed Transaction**
+
+Taaki dono updates
+
+Either
+
+```
+Success
+
+OR
+
+Rollback
+```
+
+---
+
+# Real Life Example 🏦
+
+Bank
+
+Tum account balance update karte ho.
+
+Saath hi
+
+Passbook bhi update honi chahiye.
+
+Agar
+
+Balance update ho gaya
+
+Passbook nahi hui.
+
+Confusion.
+
+Exactly same issue.
+
+---
+
+# Local vs Global Secondary Index
+
+| Feature | Local Secondary Index | Global Secondary Index |
+|----------|----------------------|------------------------|
+| Index Location | Inside Each Shard | Separate Cluster |
+| Read Speed | Slow | Fast |
+| Write Speed | Fast | Slower |
+| Network Calls | None | Required |
+| Complexity | Low | High |
+| Best For | Write-heavy Systems | Read-heavy Systems |
+
+---
+
+# 📊 Complete Flow
+
+```
+Huge Database
+
+↓
+
+Partitioning
+
+↓
+
+Range
+
+OR
+
+Hash
+
+↓
+
+Need Search by Other Fields
+
+↓
+
+Secondary Index
+
+↓
+
+Local
+
+OR
+
+Global
+```
+
+---
+
+# 📈 Advantages of Partitioning
+
+✅ Horizontal Scaling
+
+✅ Better Storage Utilization
+
+✅ Faster Writes
+
+✅ Parallel Processing
+
+✅ Higher Throughput
+
+---
+
+# 📉 Challenges
+
+❌ Hot Spots (Range)
+
+❌ Poor Range Queries (Hash)
+
+❌ Distributed Transactions
+
+❌ Cross-Shard Queries
+
+❌ Rebalancing Complexity
+
+---
+
+# 🎯 Interview Questions
+
+### Q1. Why is Replication not enough for scaling?
+
+Replication **copies the same dataset** to multiple machines for availability and fault tolerance, but **each replica still stores the entire database**. If the dataset itself no longer fits on one machine, only **Partitioning (Sharding)** can solve that problem.
+
+---
+
+### Q2. Difference between Replication and Partitioning?
+
+| Replication | Partitioning |
+|-------------|--------------|
+| Copies data | Splits data |
+| Improves availability | Improves scalability |
+| Same data on every replica | Different data on each shard |
+
+---
+
+### Q3. When should we use Range Partitioning?
+
+When applications frequently execute **range-based queries** such as date ranges, alphabetical searches, or ordered data retrieval.
+
+---
+
+### Q4. Why does Range Partitioning create Hot Spots?
+
+Because some ranges receive much more traffic or contain significantly more data than others, causing one shard to become overloaded while others remain underutilized.
+
+---
+
+### Q5. When should we use Hash Partitioning?
+
+When the goal is **uniform data distribution** and balanced load across shards, and range queries are not a primary requirement.
+
+---
+
+### Q6. Difference between Local and Global Secondary Index?
+
+- **Local Secondary Index:** Each shard manages its own index. Writes are simple, but reads often require querying every shard.
+- **Global Secondary Index:** A separate index cluster is maintained across the system. Reads are fast, but writes become more complex because both the primary data and the global index must stay synchronized.
+
+---
+
+### Q7. Why are Distributed Transactions needed with Global Secondary Indexes?
+
+Because a write must update **both the primary shard and the global index**. If one update succeeds and the other fails, the system becomes inconsistent. Distributed transactions ensure both operations succeed together or both roll back.
+
+---
+
+# ⚡ FAANG Interview Summary (30 Seconds)
+
+```
+                 Database Too Big
+
+                       │
+
+                Partition (Sharding)
+
+                       │
+
+        ┌──────────────┴──────────────┐
+
+        │                             │
+
+   Range Partition                Hash Partition
+
+        │                             │
+
+Good Range Queries            Uniform Distribution
+
+Hot Spots                     No Range Queries
+
+──────────────────────────────────────────────
+
+Secondary Indexes
+
+│
+
+├── Local Index
+│      ├── Fast Writes
+│      └── Slow Reads
+│
+└── Global Index
+       ├── Fast Reads
+       └── Complex Writes
+```
+
+---
+
+# 🧠 Memory Trick
+
+```
+📦 Huge Database
+
+↓
+
+✂️ Partition
+
+↓
+
+📚 Range
+→ Ordered
+→ Hot Spots
+
+🎲 Hash
+→ Balanced
+→ No Range Search
+
+🔍 Secondary Index
+
+🏠 Local
+→ Fast Write
+
+🌍 Global
+→ Fast Read
+
+⚠️ Global Index
+→ Distributed Transactions
+```
+
+---
+
+# 🔥 Golden Interview Takeaway
+
+> **Replication aur Partitioning dono scale karte hain, lekin alag problems solve karte hain.**  
+> **Replication = Same data ki multiple copies (Availability + Fault Tolerance).**  
+> **Partitioning (Sharding) = Data ko divide karna (Horizontal Scalability).**
+
+> **Range Partitioning** range queries ke liye best hai lekin **Hot Spots** create kar sakta hai.  
+> **Hash Partitioning** load evenly distribute karta hai lekin efficient range queries lose ho jaati hain.  
+
+> **Local Secondary Index** writes ko fast banata hai, jabki **Global Secondary Index** reads ko fast banata hai, lekin uske liye distributed transactions aur synchronization ka overhead aata hai.
