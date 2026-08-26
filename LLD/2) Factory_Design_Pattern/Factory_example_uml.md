@@ -22,7 +22,7 @@
                     │   Vehicle*                  │
                     └──────────────┬──────────────┘
                                    │
-                                   │ creates
+                                   │ creates the object of these classes and give to the client
                     ┌──────────────┼──────────────┐
                     │              │              │
                     │              │              │
