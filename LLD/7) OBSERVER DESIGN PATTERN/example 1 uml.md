@@ -45,8 +45,8 @@
 │ - subscribers : vector<Observer*>                            │
 ├──────────────────────────────────────────────────────────────┤
 │ + YouTubeChannel(channelName : string)                       │
-│ + subscribe(observer : Observer*) : void                    │
-│ + unsubscribe(observer : Observer*) : void                  │
+│ + subscribe(observer : Observer*) : void                     │
+│ + unsubscribe(observer : Observer*) : void                   │
 │ + uploadVideo(videoTitle : string) : void                    │
 │ - notify(videoTitle : string) : void                         │
 └───────────────────────────────┬──────────────────────────────┘
