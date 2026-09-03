@@ -8,12 +8,12 @@
 
                          ┌──────────────────────────────────┐
                          │         LeaveHandler             │
-                         │          <<abstract>>             │
+                         │          <<abstract>>            │
                          ├──────────────────────────────────┤
-                         │ # next: shared_ptr<LeaveHandler>│
+                         │ # next: shared_ptr<LeaveHandler> │
                          ├──────────────────────────────────┤
                          │ + setNext(handler)               │
-                         │ + handleRequest(request)          │
+                         │ + handleRequest(request)         │
                          └────────────────┬─────────────────┘
                                           │
                          ┌────────────────┼────────────────┐
